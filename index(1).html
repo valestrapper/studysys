@@ -1,0 +1,2005 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>STUDY.SYS — valestrapper</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;1,300;1,400&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#000;--fg:#fff;--dim:#777;--faint:#111;--border:#2a2a2a;--border2:#444;--glow:rgba(255,255,255,0.05);}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html{scroll-behavior:smooth;}
+body{background:var(--bg);color:var(--fg);font-family:'JetBrains Mono',monospace;min-height:100vh;overflow-x:hidden;cursor:crosshair;}
+#dot-canvas{position:fixed;inset:0;z-index:0;pointer-events:none;opacity:0.5;}
+body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(255,255,255,0.009) 2px,rgba(255,255,255,0.009) 4px);pointer-events:none;z-index:9999;animation:scanroll 14s linear infinite;}
+@keyframes scanroll{0%{background-position:0 0;}100%{background-position:0 120px;}}
+
+/* BOOT */
+#boot{position:fixed;inset:0;background:#000;z-index:10000;display:flex;flex-direction:column;justify-content:center;align-items:flex-start;padding:48px;transition:opacity .6s ease;}
+#boot.out{opacity:0;pointer-events:none;}
+.bl{font-size:12px;color:#fff;letter-spacing:.05em;opacity:0;transform:translateY(4px);transition:opacity .25s,transform .25s;line-height:2.2;}
+.bl.show{opacity:1;transform:none;}
+.bl.d{color:#555;}
+.dot-loader{display:inline-flex;gap:4px;margin-left:8px;vertical-align:middle;}
+.dot-loader span{width:4px;height:4px;border-radius:50%;background:#fff;animation:dotB .9s ease-in-out infinite;}
+.dot-loader span:nth-child(2){animation-delay:.15s;}
+.dot-loader span:nth-child(3){animation-delay:.3s;}
+@keyframes dotB{0%,100%{opacity:.2;transform:translateY(0);}50%{opacity:1;transform:translateY(-4px);}}
+
+/* APP */
+#app{position:relative;z-index:10;max-width:960px;margin:0 auto;padding:0 24px 100px;}
+
+/* HEADER */
+header{padding:48px 0 28px;border-bottom:1px solid var(--border);margin-bottom:36px;}
+.sys-tag{font-size:10px;letter-spacing:.3em;color:var(--dim);text-transform:uppercase;margin-bottom:10px;}
+.sys-tag span{animation:blink 1.4s step-end infinite;}
+@keyframes blink{50%{opacity:0;}}
+h1.logo{font-size:clamp(28px,6vw,52px);font-weight:800;letter-spacing:-.02em;line-height:1;display:inline-block;}
+h1.logo::after{content:'_';animation:blink 1s step-end infinite;}
+.holo{background:linear-gradient(90deg,#fff 0%,#aaa 40%,#fff 60%,#555 100%);background-size:200% auto;-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;animation:shimmer 3s linear infinite;}
+@keyframes shimmer{0%{background-position:0% center;}100%{background-position:200% center;}}
+.header-meta{margin-top:12px;font-size:10px;color:var(--dim);letter-spacing:.15em;display:flex;gap:20px;flex-wrap:wrap;}
+.sdot{width:6px;height:6px;border-radius:50%;background:#fff;display:inline-block;margin-right:6px;animation:pdot 2s ease-in-out infinite;}
+@keyframes pdot{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(255,255,255,.4);}50%{opacity:.6;box-shadow:0 0 0 5px rgba(255,255,255,0);}}
+
+/* TABS */
+.selector{margin-bottom:36px;}
+.slabel{font-size:10px;letter-spacing:.3em;color:var(--dim);text-transform:uppercase;margin-bottom:12px;}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;}
+.tab{background:transparent;border:1px solid var(--border);color:var(--dim);font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.12em;padding:9px 18px;cursor:pointer;text-transform:uppercase;transition:all .2s;}
+.tab:hover{color:#fff;border-color:#fff;}
+.tab.active{background:#fff;color:#000;border-color:#fff;font-weight:700;}
+
+/* PANELS */
+.panel{display:none;}
+.panel.active{display:block;animation:pIn .35s ease forwards;}
+@keyframes pIn{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:none;}}
+
+/* STUDY CARD */
+.sc{border:1px solid var(--border);margin-bottom:18px;transition:border-color .2s;}
+.sc:hover{border-color:var(--border2);}
+.ch{padding:13px 18px;border-bottom:1px solid transparent;display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;transition:background .2s;}
+.ch:hover{background:var(--glow);}
+.ch.open{border-bottom-color:var(--border);}
+.ctitle{font-size:10px;letter-spacing:.22em;text-transform:uppercase;font-weight:700;display:flex;align-items:center;gap:10px;}
+.cnum{color:var(--dim);font-weight:400;}
+.ctog{font-size:10px;color:var(--dim);transition:transform .3s;}
+.ch.open .ctog{transform:rotate(90deg);}
+.cb{padding:22px 18px;display:none;}
+.cb.open{display:block;}
+
+/* TOPIC GRID */
+.tgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px;margin-bottom:18px;}
+.tb{border:1px solid var(--border);padding:14px 16px;position:relative;}
+.tb::before{content:'';position:absolute;top:0;left:0;width:2px;height:100%;background:#fff;opacity:.25;}
+.tb h4{font-size:9px;letter-spacing:.22em;text-transform:uppercase;color:var(--dim);margin-bottom:9px;font-weight:600;}
+.tb p,.tb li{font-size:11.5px;line-height:1.75;color:#ccc;}
+.tb ul{list-style:none;padding:0;}
+.tb ul li::before{content:'→ ';color:var(--dim);font-size:10px;}
+.tb ul li strong{color:#eee;}
+
+/* KEY FACTS / FORMULAS */
+.kf{border-left:2px solid #fff;padding:9px 14px;margin:7px 0;background:rgba(255,255,255,.03);font-size:11.5px;line-height:1.65;color:#ddd;}
+.kf strong{color:#fff;font-weight:700;}
+.fbox{background:var(--faint);border:1px solid var(--border);padding:11px 15px;font-size:13px;font-weight:700;letter-spacing:.05em;margin:9px 0;display:inline-block;position:relative;}
+.fbox::before{content:'FORMULA';position:absolute;top:-8px;left:10px;font-size:8px;letter-spacing:.3em;background:#000;padding:0 4px;color:var(--dim);}
+
+/* VOCAB TABLE */
+.vt{width:100%;border-collapse:collapse;font-size:11px;margin:10px 0;}
+.vt th{text-align:left;padding:8px 11px;font-size:9px;letter-spacing:.22em;text-transform:uppercase;color:var(--dim);border-bottom:1px solid var(--border);font-weight:500;}
+.vt td{padding:9px 11px;border-bottom:1px solid rgba(255,255,255,.04);color:#bbb;vertical-align:top;line-height:1.55;}
+.vt tr:hover td{background:var(--glow);color:#fff;}
+
+/* SECTION DIVIDER */
+.div{border:none;border-top:1px solid var(--border);margin:18px 0;position:relative;}
+.div::after{content:attr(data-l);position:absolute;top:-8px;left:0;background:#000;padding-right:10px;font-size:9px;letter-spacing:.25em;text-transform:uppercase;color:var(--dim);}
+
+/* FLASHCARDS — FIXED */
+.fc-intro{font-size:10px;color:var(--dim);letter-spacing:.1em;margin-bottom:14px;}
+.fc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;}
+.fc{border:1px solid var(--border);cursor:pointer;perspective:700px;height:130px;transition:border-color .2s;}
+.fc:hover{border-color:var(--border2);}
+.fc-inner{position:relative;width:100%;height:100%;transition:transform .5s cubic-bezier(.4,0,.2,1);transform-style:preserve-3d;}
+.fc.flipped .fc-inner{transform:rotateY(180deg);}
+.fc-front,.fc-back{position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;padding:14px;display:flex;flex-direction:column;justify-content:center;background:#000;}
+.fc-back{transform:rotateY(180deg);}
+.fc-lbl{font-size:8px;letter-spacing:.28em;text-transform:uppercase;color:var(--dim);margin-bottom:7px;flex-shrink:0;}
+.fc-txt{font-size:11px;line-height:1.55;color:#eee;overflow:hidden;}
+.fc-back .fc-txt{color:#aaa;font-size:10.5px;}
+
+/* PRACTICE TEST */
+.quiz-wrap{max-width:100%;}
+.qitem{margin-bottom:18px;padding:18px;border:1px solid var(--border);transition:border-color .2s;}
+.qitem:hover{border-color:var(--border2);}
+.qnum{font-size:9px;letter-spacing:.28em;color:var(--dim);text-transform:uppercase;margin-bottom:7px;}
+.qtext{font-size:12.5px;line-height:1.55;margin-bottom:13px;color:#eee;}
+.qchoices{list-style:none;padding:0;}
+.qchoices li{padding:8px 12px;margin-bottom:5px;border:1px solid var(--border);font-size:11px;cursor:pointer;transition:all .15s;display:flex;align-items:flex-start;gap:10px;color:#aaa;line-height:1.4;}
+.qchoices li:hover{border-color:#fff;color:#fff;background:var(--glow);}
+.qchoices li.correct{border-color:#fff!important;background:rgba(255,255,255,.09);color:#fff!important;}
+.qchoices li.wrong{border-color:#333!important;opacity:.35;}
+.qchoices li.revealed{pointer-events:none;}
+.cletter{font-size:9px;letter-spacing:.1em;color:var(--dim);min-width:14px;flex-shrink:0;padding-top:1px;}
+.qchoices li.correct .cletter::after{content:' ✓';color:#fff;}
+.score-box{border:1px solid var(--border);padding:24px;text-align:center;margin-top:16px;display:none;}
+.score-n{font-size:48px;font-weight:800;letter-spacing:-.03em;display:block;margin-bottom:4px;}
+.score-l{font-size:10px;letter-spacing:.28em;color:var(--dim);text-transform:uppercase;}
+.btn{background:#fff;color:#000;border:none;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.2em;text-transform:uppercase;padding:10px 22px;cursor:pointer;font-weight:700;margin-top:14px;transition:opacity .2s;}
+.btn:hover{opacity:.82;}
+.btn.outline{background:transparent;color:#fff;border:1px solid var(--border);}
+.btn.outline:hover{border-color:#fff;}
+
+/* FADE ANIMS */
+.fu{opacity:0;transform:translateY(14px);animation:fadeUp .5s ease forwards;}
+@keyframes fadeUp{to{opacity:1;transform:none;}}
+.d1{animation-delay:.05s;}.d2{animation-delay:.1s;}.d3{animation-delay:.15s;}.d4{animation-delay:.2s;}.d5{animation-delay:.25s;}
+
+/* TAG */
+.tag{display:inline-block;background:#fff;color:#000;font-size:9px;letter-spacing:.14em;padding:2px 7px;text-transform:uppercase;font-weight:700;margin:2px;}
+.tag.dim{background:transparent;color:var(--dim);border:1px solid var(--border);}
+
+@media(max-width:600px){.tgrid{grid-template-columns:1fr;}.fc-grid{grid-template-columns:1fr 1fr;}}
+</style>
+</head>
+<body>
+
+<div id="boot">
+  <div class="bl" id="b0">STUDY.SYS v3.0 — 8TH GRADE TERMINAL</div>
+  <div class="bl d" id="b1">» initializing knowledge base...</div>
+  <div class="bl d" id="b2">» PRE-ALGEBRA .............. LOADED</div>
+  <div class="bl d" id="b3">» ALGEBRA .................. LOADED</div>
+  <div class="bl d" id="b4">» SCIENCE .................. LOADED</div>
+  <div class="bl d" id="b5">» BIOLOGY .................. LOADED</div>
+  <div class="bl d" id="b6">» flashcards ............... LOADED</div>
+  <div class="bl d" id="b7">» practice tests (40q ea) .. LOADED</div>
+  <div class="bl" id="b8">ALL SYSTEMS GO <span class="dot-loader"><span></span><span></span><span></span></span></div>
+</div>
+
+<canvas id="dot-canvas"></canvas>
+
+<div id="app">
+<header class="fu">
+  <div class="sys-tag">valestrapper.github.io/study // <span>◼</span> LIVE</div>
+  <h1 class="logo"><span class="holo">STUDY.SYS</span></h1>
+  <div class="header-meta">
+    <span><span class="sdot"></span>8TH GRADE</span>
+    <span>// 4 CLASSES</span>
+    <span>// 40Q TESTS</span>
+    <span>// GET THAT 5</span>
+  </div>
+</header>
+
+<div class="selector fu d1">
+  <div class="slabel">// SELECT CLASS</div>
+  <div class="tabs">
+    <button class="tab active" data-panel="prealgebra">Pre-Algebra</button>
+    <button class="tab" data-panel="algebra">Algebra</button>
+    <button class="tab" data-panel="science">Science</button>
+    <button class="tab" data-panel="biology">Biology</button>
+  </div>
+</div>
+
+<!-- ═══════════════════ PRE-ALGEBRA ═══════════════════ -->
+<div class="panel active" id="panel-prealgebra">
+
+<div class="sc fu d2">
+<div class="ch open" onclick="tog(this)"><span class="ctitle"><span class="cnum">01</span> NUMBER SYSTEMS</span><span class="ctog">▶</span></div>
+<div class="cb open">
+<div class="tgrid">
+<div class="tb"><h4>Types of Numbers</h4><ul>
+<li>Natural numbers: 1, 2, 3, 4... (counting)</li>
+<li>Whole numbers: 0, 1, 2, 3... (natural + zero)</li>
+<li>Integers: ...-3,-2,-1,0,1,2,3... (pos, neg, zero)</li>
+<li>Rational: any fraction a/b where b≠0 (includes terminating and repeating decimals)</li>
+<li>Irrational: cannot be written as fraction — decimal never ends or repeats (π, √2, √3, e)</li>
+<li>Real numbers: all rational AND irrational combined</li>
+</ul></div>
+<div class="tb"><h4>Integer Operations</h4><ul>
+<li>Same signs when multiplying/dividing → POSITIVE</li>
+<li>Different signs → NEGATIVE</li>
+<li>Adding same sign: add and keep the sign</li>
+<li>Adding different signs: subtract, keep sign of larger absolute value</li>
+<li>Subtracting: add the opposite (a - b = a + (-b))</li>
+<li>Double negative: -(-5) = +5</li>
+</ul></div>
+<div class="tb"><h4>Order of Operations (PEMDAS)</h4><ul>
+<li><strong>P</strong> — Parentheses (innermost first)</li>
+<li><strong>E</strong> — Exponents (powers and roots)</li>
+<li><strong>M/D</strong> — Multiply & Divide (left to right, same priority)</li>
+<li><strong>A/S</strong> — Add & Subtract (left to right, same priority)</li>
+<li>Example: 3 + 4×2² = 3 + 4×4 = 3 + 16 = 19</li>
+<li>Brackets work same as parentheses</li>
+</ul></div>
+<div class="tb"><h4>Absolute Value</h4><ul>
+<li>|x| = distance from zero on number line</li>
+<li>Always ≥ 0, never negative</li>
+<li>|-7| = 7, |7| = 7, |0| = 0</li>
+<li>|a| = |-a| for any a</li>
+<li>Used for: distance, error, temperature difference</li>
+</ul></div>
+<div class="tb"><h4>Prime & Composite Numbers</h4><ul>
+<li>Prime: exactly 2 factors (1 and itself) — 2,3,5,7,11,13,17,19,23...</li>
+<li>Composite: more than 2 factors — 4,6,8,9,10,12...</li>
+<li>1 is NEITHER prime nor composite</li>
+<li>2 is the ONLY even prime number</li>
+<li>GCF: greatest common factor of two numbers</li>
+<li>LCM: least common multiple of two numbers</li>
+</ul></div>
+<div class="tb"><h4>Divisibility Rules</h4><ul>
+<li>÷2: ends in 0,2,4,6,8</li>
+<li>÷3: digit sum divisible by 3</li>
+<li>÷4: last two digits divisible by 4</li>
+<li>÷5: ends in 0 or 5</li>
+<li>÷6: divisible by both 2 AND 3</li>
+<li>÷9: digit sum divisible by 9</li>
+<li>÷10: ends in 0</li>
+</ul></div>
+</div>
+</div></div>
+
+<div class="sc fu d2">
+<div class="ch" onclick="tog(this)"><span class="ctitle"><span class="cnum">02</span> FRACTIONS, DECIMALS & PERCENTS</span><span class="ctog">▶</span></div>
+<div class="cb">
+<div class="tgrid">
+<div class="tb"><h4>Fraction Operations</h4><ul>
+<li>ADD/SUB: find LCD, convert, then add/subtract numerators</li>
+<li>MULTIPLY: multiply tops × tops, bottoms × bottoms — simplify first if possible</li>
+<li>DIVIDE: Keep first, Change ÷ to ×, Flip second (KCF)</li>
+<li>Mixed → improper: (whole × denom + num) / denom</li>
+<li>Improper → mixed: divide, remainder becomes new numerator</li>
+<li>Simplify: divide both by GCF</li>
+</ul></div>
+<div class="tb"><h4>Decimal Conversions</h4><ul>
+<li>Fraction → decimal: divide numerator by denominator</li>
+<li>Decimal → fraction: write over place value, simplify</li>
+<li>Terminating decimal: division ends (1/4 = 0.25)</li>
+<li>Repeating decimal: pattern repeats (1/3 = 0.333...)</li>
+<li>% → decimal: divide by 100 (shift left 2)</li>
+<li>Decimal → %: multiply by 100 (shift right 2)</li>
+</ul></div>
+<div class="tb"><h4>Percent Problems</h4><ul>
+<li>% of number: convert to decimal, multiply</li>
+<li>What % is part of whole? (part/whole) × 100</li>
+<li>Finding whole: part ÷ percent (as decimal)</li>
+<li>% increase: (new−old)/old × 100</li>
+<li>% decrease: (old−new)/old × 100</li>
+<li>Tax: original × tax rate; add to original</li>
+<li>Tip: original × tip rate; add to original</li>
+<li>Discount: original × discount rate; subtract from original</li>
+</ul></div>
+<div class="tb"><h4>Ratios & Proportions</h4><ul>
+<li>Ratio: comparison a:b or a/b</li>
+<li>Proportion: two equal ratios a/b = c/d</li>
+<li>Cross multiply to solve: ad = bc</li>
+<li>Unit rate: per-one comparison (miles per hour)</li>
+<li>Scale factor: ratio of similar figure dimensions</li>
+<li>Constant of proportionality: k in y = kx</li>
+</ul></div>
+</div>
+<div class="kf"><strong>Simple Interest:</strong> I = Prt (P=principal, r=rate as decimal, t=time in years)</div>
+<div class="kf"><strong>Compound Interest:</strong> A = P(1 + r/n)^(nt) — interest calculated on accumulated interest</div>
+<div class="kf"><strong>Sale price:</strong> P × (1 − discount%) &nbsp;|&nbsp; <strong>After tax:</strong> P × (1 + tax%)</div>
+</div></div>
+
+<div class="sc fu d2">
+<div class="ch" onclick="tog(this)"><span class="ctitle"><span class="cnum">03</span> VARIABLES, EXPRESSIONS & EQUATIONS</span><span class="ctog">▶</span></div>
+<div class="cb">
+<div class="tgrid">
+<div class="tb"><h4>Algebraic Vocabulary</h4><ul>
+<li>Variable: letter representing unknown quantity</li>
+<li>Constant: fixed number that doesn't change</li>
+<li>Coefficient: number multiplied by a variable</li>
+<li>Term: number, variable, or product of both</li>
+<li>Expression: terms combined (no = sign)</li>
+<li>Equation: expression = expression (has = sign)</li>
+<li>Like terms: same variable AND same exponent</li>
+</ul></div>
+<div class="tb"><h4>Combining Like Terms</h4><ul>
+<li>Only add/subtract terms with identical variables and exponents</li>
+<li>Add/subtract the coefficients ONLY</li>
+<li>3x + 5x = 8x ✓</li>
+<li>3x + 5y = 3x + 5y (can't combine) ✗</li>
+<li>7x² − 3x² = 4x²</li>
+<li>Constants combine with constants: 5 + 3 = 8</li>
+</ul></div>
+<div class="tb"><h4>Distributive Property</h4><ul>
+<li>a(b + c) = ab + ac — multiply EVERY term inside</li>
+<li>a(b − c) = ab − ac</li>
+<li>3(x + 4) = 3x + 12</li>
+<li>-2(x − 5) = -2x + 10 (negatives flip signs)</li>
+<li>-(x + 3) = -x − 3 (distribute the negative)</li>
+<li>Use to remove parentheses before combining like terms</li>
+</ul></div>
+<div class="tb"><h4>Solving One-Step Equations</h4><ul>
+<li>Goal: isolate the variable on one side</li>
+<li>Use inverse (opposite) operations</li>
+<li>Whatever you do to one side, MUST do to both</li>
+<li>x + 7 = 15 → subtract 7 → x = 8</li>
+<li>x − 4 = 9 → add 4 → x = 13</li>
+<li>3x = 18 → divide 3 → x = 6</li>
+<li>x/5 = 4 → multiply 5 → x = 20</li>
+</ul></div>
+<div class="tb"><h4>Solving Multi-Step Equations</h4><ul>
+<li>Step 1: Distribute (remove parentheses)</li>
+<li>Step 2: Combine like terms on each side</li>
+<li>Step 3: Move variables to one side</li>
+<li>Step 4: Undo addition/subtraction</li>
+<li>Step 5: Undo multiplication/division</li>
+<li>Always CHECK by substituting answer back in</li>
+</ul></div>
+<div class="tb"><h4>Special Equation Situations</h4><ul>
+<li>Variables cancel, TRUE statement (2=2): infinitely many solutions</li>
+<li>Variables cancel, FALSE statement (3=5): no solution</li>
+<li>Literal equations: solve for one variable in terms of others</li>
+<li>Example: d = rt → solve for t: t = d/r</li>
+</ul></div>
+</div>
+</div></div>
+
+<div class="sc fu d3">
+<div class="ch" onclick="tog(this)"><span class="ctitle"><span class="cnum">04</span> INEQUALITIES & GRAPHING ON NUMBER LINE</span><span class="ctog">▶</span></div>
+<div class="cb">
+<div class="tgrid">
+<div class="tb"><h4>Inequality Symbols</h4><ul>
+<li>&lt; less than — open circle, shade left</li>
+<li>&gt; greater than — open circle, shade right</li>
+<li>≤ less than or EQUAL — closed circle, shade left</li>
+<li>≥ greater than or EQUAL — closed circle, shade right</li>
+<li>≠ not equal to</li>
+</ul></div>
+<div class="tb"><h4>Solving Inequalities</h4><ul>
+<li>Same steps as solving equations</li>
+<li><strong>KEY RULE: FLIP the inequality sign when multiplying OR dividing by a NEGATIVE number</strong></li>
+<li>−2x &lt; 8 → divide by −2 → x &gt; −4 (flipped!)</li>
+<li>Adding/subtracting does NOT flip sign</li>
+<li>Multiplying/dividing by positive does NOT flip</li>
+</ul></div>
+<div class="tb"><h4>Compound Inequalities</h4><ul>
+<li>AND (conjunction): both conditions true; "between" — graph is overlap</li>
+<li>OR (disjunction): either condition true — graph is union</li>
+<li>-3 &lt; x &lt; 5 means x &gt; -3 AND x &lt; 5</li>
+<li>Solve each part separately, then combine on graph</li>
+</ul></div>
+</div>
+</div></div>
+
+<div class="sc fu d3">
+<div class="ch" onclick="tog(this)"><span class="ctitle"><span class="cnum">05</span> GEOMETRY — ANGLES, SHAPES & MEASUREMENT</span><span class="ctog">▶</span></div>
+<div class="cb">
+<div class="tgrid">
+<div class="tb"><h4>Angle Relationships</h4><ul>
+<li>Complementary: two angles that add to 90°</li>
+<li>Supplementary: two angles that add to 180°</li>
+<li>Vertical angles: across from each other at intersection; ALWAYS equal</li>
+<li>Adjacent angles: share a side and vertex</li>
+<li>Linear pair: adjacent angles on a straight line; sum = 180°</li>
+<li>Triangle angles: always sum to 180°</li>
+<li>Quadrilateral angles: always sum to 360°</li>
+<li>Exterior angle of triangle = sum of the two non-adjacent interior angles</li>
+</ul></div>
+<div class="tb"><h4>Area Formulas</h4><ul>
+<li>Rectangle: A = l × w</li>
+<li>Square: A = s²</li>
+<li>Triangle: A = ½bh</li>
+<li>Parallelogram: A = bh (h is perpendicular height!)</li>
+<li>Trapezoid: A = ½(b₁ + b₂)h</li>
+<li>Circle: A = πr²</li>
+<li>Composite: break into smaller shapes, add/subtract</li>
+</ul></div>
+<div class="tb"><h4>Perimeter & Circumference</h4><ul>
+<li>Rectangle: P = 2l + 2w = 2(l+w)</li>
+<li>Square: P = 4s</li>
+<li>Triangle: add all three sides</li>
+<li>Circle circumference: C = 2πr = πd</li>
+<li>π ≈ 3.14159 (use 3.14 unless told otherwise)</li>
+<li>Arc length: (θ/360) × 2πr</li>
+</ul></div>
+<div class="tb"><h4>Surface Area & Volume</h4><ul>
+<li>Rectangular prism: V = lwh, SA = 2(lw+lh+wh)</li>
+<li>Cube: V = s³, SA = 6s²</li>
+<li>Cylinder: V = πr²h, SA = 2πr² + 2πrh</li>
+<li>Cone: V = ⅓πr²h</li>
+<li>Pyramid: V = ⅓Bh (B = base area)</li>
+<li>Sphere: V = (4/3)πr³, SA = 4πr²</li>
+</ul></div>
+<div class="tb"><h4>Pythagorean Theorem</h4><ul>
+<li>For RIGHT triangles ONLY: a² + b² = c²</li>
+<li>c is ALWAYS the hypotenuse (longest side, opposite right angle)</li>
+<li>a and b are the two legs</li>
+<li>Finding hypotenuse: c = √(a²+b²)</li>
+<li>Finding a leg: a = √(c²−b²)</li>
+<li>Common triples: 3-4-5, 5-12-13, 8-15-17</li>
+</ul></div>
+<div class="tb"><h4>Transformations</h4><ul>
+<li>Translation: slide (add/subtract to coordinates)</li>
+<li>Reflection: flip over a line (x-axis flips y sign, y-axis flips x sign)</li>
+<li>Rotation: turn around a point</li>
+<li>Dilation: resize by scale factor k</li>
+<li>Rigid transformations: keep shape AND size (translation, reflection, rotation)</li>
+<li>Congruent: same shape and size; Similar: same shape, different size</li>
+</ul></div>
+</div>
+</div></div>
+
+<div class="sc fu d3">
+<div class="ch" onclick="tog(this)"><span class="ctitle"><span class="cnum">06</span> EXPONENTS & SCIENTIFIC NOTATION</span><span class="ctog">▶</span></div>
+<div class="cb">
+<div class="tgrid">
+<div class="tb"><h4>Exponent Rules</h4><ul>
+<li>Product rule: xᵃ × xᵇ = xᵃ⁺ᵇ (same base, ADD exponents)</li>
+<li>Quotient rule: xᵃ ÷ xᵇ = xᵃ⁻ᵇ (same base, SUBTRACT)</li>
+<li>Power rule: (xᵃ)ᵇ = xᵃᵇ (multiply exponents)</li>
+<li>Zero exponent: x⁰ = 1 (any nonzero base to zero power)</li>
+<li>Negative exponent: x⁻ⁿ = 1/xⁿ (flip to denominator)</li>
+<li>Product to a power: (xy)ᵃ = xᵃyᵃ</li>
+</ul></div>
+<div class="tb"><h4>Scientific Notation</h4><ul>
+<li>Form: a × 10ⁿ where 1 ≤ a &lt; 10</li>
+<li>Large numbers: positive exponent (6.02 × 10²³)</li>
+<li>Small numbers: negative exponent (1.6 × 10⁻¹⁹)</li>
+<li>Converting: count decimal places moved</li>
+<li>Multiply: multiply the a's, ADD the exponents</li>
+<li>Divide: divide the a's, SUBTRACT the exponents</li>
+</ul></div>
+<div class="tb"><h4>Square & Cube Roots</h4><ul>
+<li>√x = number that squares to x</li>
+<li>Perfect squares: 1,4,9,16,25,36,49,64,81,100,121,144,169,196,225</li>
+<li>Cube root: ∛x = number that cubes to x</li>
+<li>Perfect cubes: 1,8,27,64,125,216,343,512</li>
+<li>Irrational roots: simplify by factoring out perfect squares</li>
+<li>√12 = √(4×3) = 2√3</li>
+</ul></div>
+</div>
+</div></div>
+
+<div class="sc fu d3">
+<div class="ch" onclick="tog(this)"><span class="ctitle"><span class="cnum">07</span> STATISTICS & PROBABILITY</span><span class="ctog">▶</span></div>
+<div class="cb">
+<div class="tgrid">
+<div class="tb"><h4>Measures of Center</h4><ul>
+<li>Mean: sum of all values ÷ count (average)</li>
+<li>Median: middle value when ordered; if even count, average the two middle</li>
+<li>Mode: most frequently occurring value (can have none or multiple)</li>
+<li>Range: max − min (spread, not center)</li>
+<li>Outliers affect the mean most; median is more resistant</li>
+</ul></div>
+<div class="tb"><h4>Data Displays</h4><ul>
+<li>Stem-and-leaf: shows actual data values</li>
+<li>Box plot (box-and-whisker): min, Q1, median, Q3, max</li>
+<li>Histogram: bars for ranges (no gaps), shows frequency</li>
+<li>Scatter plot: shows relationship between two variables</li>
+<li>Line graph: change over time</li>
+<li>Bar graph: compare categories</li>
+</ul></div>
+<div class="tb"><h4>Probability</h4><ul>
+<li>P(event) = favorable outcomes / total outcomes</li>
+<li>Always between 0 (impossible) and 1 (certain)</li>
+<li>Complement: P(not A) = 1 − P(A)</li>
+<li>Theoretical vs experimental probability</li>
+<li>Independent events: P(A and B) = P(A) × P(B)</li>
+<li>Dependent events: second event affected by first</li>
+<li>Mutually exclusive: can't happen at same time; P(A or B) = P(A) + P(B)</li>
+</ul></div>
+<div class="tb"><h4>Counting & Combinations</h4><ul>
+<li>Fundamental Counting Principle: multiply choices at each step</li>
+<li>Permutation: order MATTERS (nPr)</li>
+<li>Combination: order does NOT matter (nCr)</li>
+<li>Tree diagrams: show all possible outcomes</li>
+<li>Sample space: set of all possible outcomes</li>
+</ul></div>
+</div>
+</div></div>
+
+<div class="sc fu d3">
+<div class="ch" onclick="tog(this)"><span class="ctitle"><span class="cnum">08</span> PROPORTIONAL RELATIONSHIPS & FUNCTIONS</span><span class="ctog">▶</span></div>
+<div class="cb">
+<div class="tgrid">
+<div class="tb"><h4>Proportional Relationships</h4><ul>
+<li>y = kx where k is the constant of proportionality</li>
+<li>Graph: straight line through the ORIGIN (0,0)</li>
+<li>k = y/x (unit rate)</li>
+<li>Table: y/x ratio is always the same</li>
+<li>Non-proportional: line doesn't pass through origin</li>
+</ul></div>
+<div class="tb"><h4>Rate of Change & Slope</h4><ul>
+<li>Rate of change = change in y / change in x</li>
+<li>Slope m = (y₂−y₁)/(x₂−x₁) = rise/run</li>
+<li>Positive slope: line goes up left to right</li>
+<li>Negative slope: line goes down left to right</li>
+<li>Zero slope: horizontal line</li>
+<li>Undefined slope: vertical line</li>
+</ul></div>
+<div class="tb"><h4>Linear vs Non-Linear</h4><ul>
+<li>Linear: constant rate of change, graph is straight line</li>
+<li>Non-linear: rate of change varies, curved graph</li>
+<li>Table check for linear: equal x-differences → equal y-differences</li>
+<li>Direct variation: y = kx passes through origin</li>
+</ul></div>
+</div>
+</div></div>
+
+<!-- Pre-Algebra Flashcards -->
+<div class="sc fu d4">
+<div class="ch" onclick="tog(this)"><span class="ctitle"><span class="cnum">★</span> FLASHCARDS — Pre-Algebra (20 cards)</span><span class="ctog">▶</span></div>
+<div class="cb">
+<p class="fc-intro">CLICK A CARD TO FLIP IT</p>
+<div class="fc-grid" id="fc-prealgebra"></div>
+</div></div>
+
+<!-- Pre-Algebra Practice Test -->
+<div class="sc fu d4">
+<div class="ch" onclick="tog(this)"><span class="ctitle"><span class="cnum">✦</span> PRACTICE TEST — Pre-Algebra (40 Questions)</span><span class="ctog">▶</span></div>
+<div class="cb" id="quiz-prealgebra"></div>
+</div>
+
+</div><!-- /panel prealgebra -->
+
+<!-- ═══════════════════ ALGEBRA ═══════════════════ -->
+<div class="panel" id="panel-algebra">
+
+<div class="sc fu d2">
+<div class="ch open" onclick="tog(this)"><span class="ctitle"><span class="cnum">01</span> PROPERTIES OF REAL NUMBERS</span><span class="ctog">▶</span></div>
+<div class="cb open">
+<div class="tgrid">
+<div class="tb"><h4>Number Properties</h4><ul>
+<li>Commutative (Add): a + b = b + a</li>
+<li>Commutative (Mult): a × b = b × a</li>
+<li>Associative (Add): (a+b)+c = a+(b+c)</li>
+<li>Associative (Mult): (a×b)×c = a×(b×c)</li>
+<li>Distributive: a(b+c) = ab + ac</li>
+<li>Identity (Add): a + 0 = a</li>
+<li>Identity (Mult): a × 1 = a</li>
+<li>Inverse (Add): a + (−a) = 0</li>
+<li>Inverse (Mult): a × (1/a) = 1 (a≠0)</li>
+<li>Zero Property: a × 0 = 0</li>
+</ul></div>
+<div class="tb"><h4>Exponent Rules (Complete)</h4><ul>
+<li>xᵃ × xᵇ = xᵃ⁺ᵇ (product rule)</li>
+<li>xᵃ ÷ xᵇ = xᵃ⁻ᵇ (quotient rule)</li>
+<li>(xᵃ)ᵇ = xᵃᵇ (power of a power)</li>
+<li>(xy)ᵃ = xᵃyᵃ (power of a product)</li>
+<li>(x/y)ᵃ = xᵃ/yᵃ (power of a quotient)</li>
+<li>x⁰ = 1, x ≠ 0</li>
+<li>x⁻ⁿ = 1/xⁿ (negative exponents)</li>
+</ul></div>
+<div class="tb"><h4>Scientific Notation Operations</h4><ul>
+<li>Form: a × 10ⁿ where 1 ≤ a &lt; 10</li>
+<li>Multiply: (a × 10ⁿ)(b × 10ᵐ) = ab × 10ⁿ⁺ᵐ</li>
+<li>Divide: (a × 10ⁿ)/(b × 10ᵐ) = (a/b) × 10ⁿ⁻ᵐ</li>
+<li>After operating, re-adjust so a is between 1-10</li>
+<li>Adding/subtracting: same exponent required first</li>
+</ul></div>
+</div>
+</div></div>
+
+<div class="sc fu d2">
+<div class="ch" onclick="tog(this)"><span class="ctitle"><span class="cnum">02</span> LINEAR EQUATIONS & SLOPE</span><span class="ctog">▶</span></div>
+<div class="cb">
+<div class="tgrid">
+<div class="tb"><h4>Slope Everything</h4><ul>
+<li>m = (y₂−y₁)/(x₂−x₁) = rise/run</li>
+<li>Positive: rises left→right (up)</li>
+<li>Negative: falls left→right (down)</li>
+<li>Zero: horizontal line (y = k)</li>
+<li>Undefined: vertical line (x = k)</li>
+<li>Steeper line = larger absolute value of slope</li>
+</ul></div>
+<div class="tb"><h4>Forms of a Line</h4><ul>
+<li>Slope-intercept: y = mx + b (m=slope, b=y-int)</li>
+<li>Standard form: Ax + By = C (A,B,C integers, A≥0)</li>
+<li>Point-slope: y − y₁ = m(x − x₁)</li>
+<li>Horizontal line: y = k (slope = 0)</li>
+<li>Vertical line: x = k (slope = undefined)</li>
+</ul></div>
+<div class="tb"><h4>Graphing Lines</h4><ul>
+<li>Method 1: Plot y-intercept, use slope for next point</li>
+<li>Method 2: Make an x-y table (choose 3 x-values)</li>
+<li>Method 3: Find x-int (y=0) and y-int (x=0), connect</li>
+<li>x-intercept: let y = 0, solve for x</li>
+<li>y-intercept: let x = 0, solve for y</li>
+</ul></div>
+<div class="tb"><h4>Parallel & Perpendicular</h4><ul>
+<li>Parallel lines: SAME slope, different y-intercepts</li>
+<li>Perpendicular lines: slopes are NEGATIVE RECIPROCALS</li>
+<li>If m₁ = 2/3, perpendicular slope = −3/2</li>
+<li>m₁ × m₂ = −1 for perpendicular</li>
+<li>Coincident lines (same line): same slope AND same y-int</li>
+</ul></div>
+</div>
+<div class="kf"><strong>Writing equation from 2 points:</strong> 1) find slope using formula, 2) use point-slope form y−y₁=m(x−x₁), 3) simplify to slope-intercept</div>
+</div></div>
+
+<div class="sc fu d2">
+<div class="ch" onclick="tog(this)"><span class="ctitle"><span class="cnum">03</span> FUNCTIONS</span><span class="ctog">▶</span></div>
+<div class="cb">
+<div class="tgrid">
+<div class="tb"><h4>Function Basics</h4><ul>
+<li>Function: each input (x) maps to EXACTLY ONE output (y)</li>
+<li>Vertical Line Test: if any vertical line crosses graph twice → NOT a function</li>
+<li>Domain: all possible inputs (x-values)</li>
+<li>Range: all possible outputs (y-values)</li>
+<li>f(x) notation: f(x) means "output when input is x"</li>
+<li>f(3) = plug 3 in for x, calculate</li>
+</ul></div>
+<div class="tb"><h4>Types of Functions</h4><ul>
+<li>Linear: f(x) = mx + b (constant rate of change)</li>
+<li>Quadratic: f(x) = ax² + bx + c (parabola)</li>
+<li>Exponential: f(x) = a·bˣ (growth/decay)</li>
+<li>Absolute value: f(x) = |x| (V-shape)</li>
+<li>Step function: staircase shape</li>
+</ul></div>
+<div class="tb"><h4>Function Tables & Graphs</h4><ul>
+<li>Table: look for pattern in outputs for equal input spacing</li>
+<li>Linear table: constant difference in y-values</li>
+<li>Quadratic table: constant second difference</li>
+<li>Exponential table: constant ratio in y-values</li>
+<li>Discrete: only certain input values (dots)</li>
+<li>Continuous: all real number inputs (line)</li>
+</ul></div>
+</div>
+</div></div>
+
+<div class="sc fu d2">
+<div class="ch" onclick="tog(this)"><span class="ctitle"><span class="cnum">04</span> SYSTEMS OF EQUATIONS</span><span class="ctog">▶</span></div>
+<div class="cb">
+<div class="tgrid">
+<div class="tb"><h4>Types of Solutions</h4><ul>
+<li>One solution: lines intersect at one point — consistent & independent</li>
+<li>No solution: parallel lines (same slope, diff y-int) — inconsistent</li>
+<li>Infinite solutions: same line — consistent & dependent</li>
+</ul></div>
+<div class="tb"><h4>Substitution Method</h4><ul>
+<li>1. Isolate one variable in one equation</li>
+<li>2. Substitute that expression into the other equation</li>
+<li>3. Solve for remaining variable</li>
+<li>4. Substitute back to find the other variable</li>
+<li>Best when: one variable already isolated or has coefficient 1</li>
+</ul></div>
+<div class="tb"><h4>Elimination Method</h4><ul>
+<li>1. Align like terms vertically</li>
+<li>2. Multiply one or both equations so coefficients of one variable are opposites</li>
+<li>3. ADD the equations (variable cancels)</li>
+<li>4. Solve, then back-substitute</li>
+<li>Best when: coefficients are already opposite or easily made so</li>
+</ul></div>
+<div class="tb"><h4>Graphing Method</h4><ul>
+<li>Put both equations in slope-intercept form</li>
+<li>Graph both lines</li>
+<li>Read intersection point (if any)</li>
+<li>Good for visuals, less precise for non-integer solutions</li>
+</ul></div>
+</div>
+</div></div>
+
+<div class="sc fu d3">
+<div class="ch" onclick="tog(this)"><span class="ctitle"><span class="cnum">05</span> POLYNOMIALS — ADD, SUBTRACT, MULTIPLY</span><span class="ctog">▶</span></div>
+<div class="cb">
+<div class="tgrid">
+<div class="tb"><h4>Polynomial Vocabulary</h4><ul>
+<li>Monomial: 1 term (4x², -7, 2xy)</li>
+<li>Binomial: 2 terms (3x+5, x²-4)</li>
+<li>Trinomial: 3 terms (x²+3x+2)</li>
+<li>Polynomial: any number of terms</li>
+<li>Degree: highest exponent in the polynomial</li>
+<li>Leading coefficient: coefficient of highest degree term</li>
+<li>Standard form: terms in descending degree order</li>
+</ul></div>
+<div class="tb"><h4>Adding & Subtracting</h4><ul>
+<li>Combine like terms only</li>
+<li>Subtracting: distribute the negative to EVERY term</li>
+<li>(3x²+2x+1) − (x²−5x+3) = 3x²+2x+1−x²+5x−3 = 2x²+7x−2</li>
+</ul></div>
+<div class="tb"><h4>Multiplying Polynomials</h4><ul>
+<li>Monomial × polynomial: distribute to each term</li>
+<li>FOIL (binomial × binomial): First + Outer + Inner + Last</li>
+<li>(x+3)(x+5) = x²+5x+3x+15 = x²+8x+15</li>
+<li>Larger polynomials: distribute each term of first into second</li>
+</ul></div>
+<div class="tb"><h4>Special Products</h4><ul>
+<li>(a+b)² = a² + 2ab + b²</li>
+<li>(a−b)² = a² − 2ab + b²</li>
+<li>(a+b)(a−b) = a² − b² (difference of squares)</li>
+<li>These patterns are worth memorizing for factoring!</li>
+</ul></div>
+</div>
+</div></div>
+
+<div class="sc fu d3">
+<div class="ch" onclick="tog(this)"><span class="ctitle"><span class="cnum">06</span> FACTORING</span><span class="ctog">▶</span></div>
+<div class="cb">
+<div class="tgrid">
+<div class="tb"><h4>Step 1 — Always: GCF</h4><ul>
+<li>Find the greatest common factor of ALL terms</li>
+<li>Factor it out front</li>
+<li>6x³ + 9x² = 3x²(2x + 3)</li>
+<li>If leading coefficient is negative, factor out a negative</li>
+<li>ALWAYS check GCF first before any other method</li>
+</ul></div>
+<div class="tb"><h4>Factoring Trinomials (x²+bx+c)</h4><ul>
+<li>Find two numbers that MULTIPLY to c AND ADD to b</li>
+<li>x² + 7x + 12: find two numbers → 3 and 4 (3×4=12, 3+4=7)</li>
+<li>Answer: (x+3)(x+4)</li>
+<li>If c is positive and b is positive: both numbers positive</li>
+<li>If c is positive and b is negative: both numbers negative</li>
+<li>If c is negative: one positive, one negative</li>
+</ul></div>
+<div class="tb"><h4>Factoring ax²+bx+c (a≠1)</h4><ul>
+<li>Multiply a × c (AC method)</li>
+<li>Find two numbers that multiply to ac and add to b</li>
+<li>Rewrite bx as the sum of two terms</li>
+<li>Factor by grouping</li>
+<li>Example: 2x²+7x+3 → ac=6, factors of 6 that add to 7: 6&1 → 2x²+6x+x+3 → 2x(x+3)+1(x+3) → (2x+1)(x+3)</li>
+</ul></div>
+<div class="tb"><h4>Difference of Squares & Perfect Squares</h4><ul>
+<li>a²−b² = (a+b)(a−b)</li>
+<li>x²−49 = (x+7)(x−7)</li>
+<li>4x²−25 = (2x+5)(2x−5)</li>
+<li>Perfect square trinomial: a²+2ab+b² = (a+b)²</li>
+<li>x²+10x+25 = (x+5)²</li>
+</ul></div>
+</div>
+</div></div>
+
+<div class="sc fu d3">
+<div class="ch" onclick="tog(this)"><span class="ctitle"><span class="cnum">07</span> QUADRATIC EQUATIONS & PARABOLAS</span><span class="ctog">▶</span></div>
+<div class="cb">
+<div class="tgrid">
+<div class="tb"><h4>Standard Form: ax²+bx+c</h4><ul>
+<li>Parabola shape when graphed</li>
+<li>a &gt; 0: opens UP (minimum vertex)</li>
+<li>a &lt; 0: opens DOWN (maximum vertex)</li>
+<li>|a| large: narrower parabola</li>
+<li>|a| small: wider parabola</li>
+<li>Axis of symmetry: x = −b/2a</li>
+<li>Vertex x-coord: −b/2a; plug back in to get y</li>
+</ul></div>
+<div class="tb"><h4>Solving Quadratics</h4><ul>
+<li>By factoring: factor, set each factor = 0, solve</li>
+<li>By square roots: ax² = c → x = ±√(c/a)</li>
+<li>Completing the square: rewrite in (x+h)² = k form</li>
+<li>Quadratic formula: works for ANY quadratic</li>
+<li>Always set equation = 0 first</li>
+</ul></div>
+<div class="tb"><h4>Quadratic Formula</h4><ul>
+<li>x = [−b ± √(b²−4ac)] / 2a</li>
+<li>Discriminant = b²−4ac</li>
+<li>D &gt; 0: TWO real solutions</li>
+<li>D = 0: ONE real solution (repeated)</li>
+<li>D &lt; 0: NO real solutions (complex)</li>
+<li>The ± gives you two solutions</li>
+</ul></div>
+<div class="tb"><h4>Vertex Form</h4><ul>
+<li>y = a(x−h)² + k</li>
+<li>Vertex is at point (h, k)</li>
+<li>Axis of symmetry: x = h</li>
+<li>Easy to find vertex immediately</li>
+<li>Converting to standard form: expand (x−h)²</li>
+</ul></div>
+</div>
+<div class="kf"><strong>Quadratic Formula:</strong> x = [−b ± √(b²−4ac)] / 2a &nbsp;|&nbsp; <strong>Vertex x:</strong> x = −b/2a</div>
+</div></div>
+
+<div class="sc fu d3">
+<div class="ch" onclick="tog(this)"><span class="ctitle"><span class="cnum">08</span> INEQUALITIES (LINEAR & SYSTEMS)</span><span class="ctog">▶</span></div>
+<div class="cb">
+<div class="tgrid">
+<div class="tb"><h4>Linear Inequalities in Two Variables</h4><ul>
+<li>Graph the boundary line (dashed for &lt; &gt;, solid for ≤ ≥)</li>
+<li>Test a point (usually (0,0)) in inequality</li>
+<li>If true: shade that region</li>
+<li>If false: shade the opposite region</li>
+<li>y &gt; mx + b: shade ABOVE line</li>
+<li>y &lt; mx + b: shade BELOW line</li>
+</ul></div>
+<div class="tb"><h4>Systems of Inequalities</h4><ul>
+<li>Graph each inequality separately</li>
+<li>Solution region: where all shading OVERLAPS</li>
+<li>Each vertex of feasible region is a candidate for optimization</li>
+<li>Test corner points for maximum/minimum values</li>
+</ul></div>
+</div>
+</div></div>
+
+<!-- Algebra Flashcards -->
+<div class="sc fu d4">
+<div class="ch" onclick="tog(this)"><span class="ctitle"><span class="cnum">★</span> FLASHCARDS — Algebra (20 cards)</span><span class="ctog">▶</span></div>
+<div class="cb">
+<p class="fc-intro">CLICK A CARD TO FLIP IT</p>
+<div class="fc-grid" id="fc-algebra"></div>
+</div></div>
+
+<!-- Algebra Practice Test -->
+<div class="sc fu d4">
+<div class="ch" onclick="tog(this)"><span class="ctitle"><span class="cnum">✦</span> PRACTICE TEST — Algebra (40 Questions)</span><span class="ctog">▶</span></div>
+<div class="cb" id="quiz-algebra"></div>
+</div>
+
+</div><!-- /panel algebra -->
+
+<!-- ═══════════════════ SCIENCE ═══════════════════ -->
+<div class="panel" id="panel-science">
+
+<div class="sc fu d2">
+<div class="ch open" onclick="tog(this)"><span class="ctitle"><span class="cnum">01</span> SCIENTIFIC METHOD & LAB SKILLS</span><span class="ctog">▶</span></div>
+<div class="cb open">
+<div class="tgrid">
+<div class="tb"><h4>Scientific Method (Full Steps)</h4><ul>
+<li>1. Observation: notice something interesting</li>
+<li>2. Question: ask a testable question</li>
+<li>3. Background Research: gather existing knowledge</li>
+<li>4. Hypothesis: educated prediction (if...then...because)</li>
+<li>5. Experiment: test hypothesis with controlled conditions</li>
+<li>6. Data collection: record observations and measurements</li>
+<li>7. Analysis: look for patterns in data</li>
+<li>8. Conclusion: does data support hypothesis?</li>
+<li>9. Communication: share results</li>
+</ul></div>
+<div class="tb"><h4>Variables Deep Dive</h4><ul>
+<li>Independent (manipulated): what YOU change in the experiment</li>
+<li>Dependent (responding): what CHANGES as a result; what you measure</li>
+<li>Controlled variables (constants): everything KEPT THE SAME</li>
+<li>Control GROUP: receives no treatment; used for comparison</li>
+<li>Experimental group: receives the treatment being tested</li>
+<li>X-axis on graph: independent variable</li>
+<li>Y-axis on graph: dependent variable</li>
+</ul></div>
+<div class="tb"><h4>SI Units & Measurement</h4><ul>
+<li>Length: meter (m) — ruler, meterstick</li>
+<li>Mass: kilogram (kg) — balance scale</li>
+<li>Volume: liter (L) or cm³ — graduated cylinder</li>
+<li>Temperature: Kelvin (K) or Celsius (°C)</li>
+<li>Time: second (s)</li>
+<li>Significant figures: meaningful digits in a measurement</li>
+<li>Precision: closeness of repeated measurements</li>
+<li>Accuracy: closeness to the TRUE value</li>
+</ul></div>
+<div class="tb"><h4>Lab Safety & Tools</h4><ul>
+<li>Always wear goggles with chemicals</li>
+<li>Microscope: eyepiece × objective = total magnification</li>
+<li>Graduated cylinder: read at bottom of meniscus</li>
+<li>Thermometer: do not stir with it</li>
+<li>Balance: zero before using; tare if needed</li>
+<li>Data tables: label with units!</li>
+</ul></div>
+</div>
+</div></div>
+
+<div class="sc fu d2">
+<div class="ch" onclick="tog(this)"><span class="ctitle"><span class="cnum">02</span> MATTER — PROPERTIES, STATES & CHANGES</span><span class="ctog">▶</span></div>
+<div class="cb">
+<div class="tgrid">
+<div class="tb"><h4>Properties of Matter</h4><ul>
+<li>Physical property: observed without changing composition (color, density, boiling point, hardness, magnetism)</li>
+<li>Chemical property: describes ability to change into new substance (flammability, reactivity, toxicity)</li>
+<li>Intensive property: does NOT depend on amount (density, temperature, color)</li>
+<li>Extensive property: DEPENDS on amount (mass, volume, length)</li>
+</ul></div>
+<div class="tb"><h4>States of Matter</h4><ul>
+<li>Solid: definite shape, definite volume; particles vibrate in fixed positions; highly ordered</li>
+<li>Liquid: no definite shape, definite volume; particles slide past each other; flows</li>
+<li>Gas: no definite shape, no definite volume; particles far apart, move fast; fills container</li>
+<li>Plasma: super-high energy ionized gas (4th state); stars, lightning, neon signs</li>
+</ul></div>
+<div class="tb"><h4>Phase Changes</h4><ul>
+<li>Melting: solid→liquid (absorbs heat; endothermic)</li>
+<li>Freezing: liquid→solid (releases heat; exothermic)</li>
+<li>Vaporization (evaporation/boiling): liquid→gas (absorbs)</li>
+<li>Condensation: gas→liquid (releases)</li>
+<li>Sublimation: solid→gas directly (dry ice, iodine)</li>
+<li>Deposition: gas→solid directly (frost)</li>
+<li>Phase changes occur at CONSTANT temperature</li>
+</ul></div>
+<div class="tb"><h4>Physical vs Chemical Changes</h4><ul>
+<li>Physical change: NO new substance; composition unchanged; often reversible</li>
+<li>Examples physical: cutting, tearing, melting, dissolving, boiling, bending</li>
+<li>Chemical change: NEW substance(s) formed; bonds broken AND formed; usually irreversible</li>
+<li>Examples chemical: burning, rusting, cooking, digestion, fermentation, tarnishing</li>
+<li>Signs of chemical change: gas produced (bubbles), precipitate forms, color change, energy change (heat/light), odor change</li>
+</ul></div>
+<div class="tb"><h4>Mixtures</h4><ul>
+<li>Homogeneous (solution): uniform throughout; can't see components (saltwater, air)</li>
+<li>Heterogeneous: components visible; not uniform (salad, granite, blood)</li>
+<li>Suspension: large particles settle out (muddy water)</li>
+<li>Colloid: medium-sized particles don't settle (milk, fog, gelatin)</li>
+<li>Separating: filtration, distillation, evaporation, chromatography</li>
+</ul></div>
+<div class="tb"><h4>Density</h4><ul>
+<li>D = m/V (density = mass ÷ volume)</li>
+<li>Units: g/cm³ or g/mL</li>
+<li>Water density: 1.0 g/cm³</li>
+<li>Object floats if density &lt; fluid density</li>
+<li>Object sinks if density &gt; fluid density</li>
+<li>Density is an INTENSIVE property (doesn't change with amount)</li>
+</ul></div>
+</div>
+</div></div>
+
+<div class="sc fu d2">
+<div class="ch" onclick="tog(this)"><span class="ctitle"><span class="cnum">03</span> ATOMIC THEORY & PERIODIC TABLE</span><span class="ctog">▶</span></div>
+<div class="cb">
+<div class="tgrid">
+<div class="tb"><h4>History of Atomic Models</h4><ul>
+<li>Dalton (1800s): indivisible sphere; atoms can't be created/destroyed</li>
+<li>Thomson (1897): plum pudding model; discovered electron</li>
+<li>Rutherford (1911): nuclear model; gold foil experiment; tiny dense nucleus</li>
+<li>Bohr (1913): electrons in fixed circular orbits (energy levels)</li>
+<li>Modern: electron cloud model; electrons in probability regions (orbitals)</li>
+</ul></div>
+<div class="tb"><h4>Subatomic Particles</h4><ul>
+<li>Proton: +1 charge, in nucleus, mass ≈ 1 amu</li>
+<li>Neutron: 0 charge, in nucleus, mass ≈ 1 amu</li>
+<li>Electron: −1 charge, electron cloud, mass ≈ 0 (negligible)</li>
+<li>Atomic number = # protons (defines the element)</li>
+<li>Mass number = protons + neutrons</li>
+<li>Atomic mass on periodic table: weighted average of all isotopes</li>
+</ul></div>
+<div class="tb"><h4>Isotopes & Ions</h4><ul>
+<li>Isotope: same element (same protons), different # of neutrons</li>
+<li>Carbon-12: 6 protons, 6 neutrons; Carbon-14: 6 protons, 8 neutrons</li>
+<li>Isotopes have same chemical properties, slightly different mass</li>
+<li>Ion: atom with unequal protons and electrons (has a charge)</li>
+<li>Cation: lost electron(s) → positive charge (Na⁺, Ca²⁺)</li>
+<li>Anion: gained electron(s) → negative charge (Cl⁻, O²⁻)</li>
+</ul></div>
+<div class="tb"><h4>Periodic Table Organization</h4><ul>
+<li>Period (horizontal row): elements with same # of electron shells</li>
+<li>Group/Family (vertical column): same # of valence electrons, similar properties</li>
+<li>Group 1 (alkali metals): very reactive, 1 valence e⁻</li>
+<li>Group 2 (alkaline earth): 2 valence e⁻</li>
+<li>Group 17 (halogens): 7 valence e⁻, very reactive nonmetals</li>
+<li>Group 18 (noble gases): full valence shell, very UNREACTIVE</li>
+<li>Transition metals: groups 3-12, middle of table</li>
+</ul></div>
+<div class="tb"><h4>Metals, Nonmetals, Metalloids</h4><ul>
+<li>Metals: left/center; shiny, malleable, ductile, conduct heat/electricity</li>
+<li>Nonmetals: upper right; brittle (when solid), poor conductors</li>
+<li>Metalloids (semimetals): staircase border; properties of both</li>
+<li>Metalloids: B, Si, Ge, As, Sb, Te (used in semiconductors)</li>
+<li>Periodic trends: atomic radius increases down/left; ionization energy increases up/right</li>
+</ul></div>
+</div>
+</div></div>
+
+<div class="sc fu d3">
+<div class="ch" onclick="tog(this)"><span class="ctitle"><span class="cnum">04</span> CHEMICAL BONDING & REACTIONS</span><span class="ctog">▶</span></div>
+<div class="cb">
+<div class="tgrid">
+<div class="tb"><h4>Chemical Bonding</h4><ul>
+<li>Ionic bond: metal + nonmetal; transfer of electrons; forms crystals (NaCl)</li>
+<li>Covalent bond: nonmetal + nonmetal; SHARING electrons</li>
+<li>Metallic bond: metal + metal; "sea of electrons"; explains conductivity/malleability</li>
+<li>Valence electrons: outermost electrons; determine bonding behavior</li>
+<li>Octet rule: atoms want 8 valence electrons (stable)</li>
+</ul></div>
+<div class="tb"><h4>Chemical Reactions</h4><ul>
+<li>Reactants → Products (equation format)</li>
+<li>Law of Conservation of Mass: matter cannot be created or destroyed</li>
+<li>Balanced equation: same number of each atom on both sides</li>
+<li>Coefficient: number in front of formula (multiplies everything)</li>
+<li>Subscript: small number after element (can't change to balance)</li>
+</ul></div>
+<div class="tb"><h4>Types of Chemical Reactions</h4><ul>
+<li>Synthesis: A + B → AB (two things combine)</li>
+<li>Decomposition: AB → A + B (one thing breaks apart)</li>
+<li>Single replacement: A + BC → AC + B</li>
+<li>Double replacement: AB + CD → AD + CB</li>
+<li>Combustion: fuel + O₂ → CO₂ + H₂O (+ energy)</li>
+</ul></div>
+<div class="tb"><h4>Acids & Bases</h4><ul>
+<li>Acid: pH &lt; 7; tastes sour; produces H⁺ ions; HCl, H₂SO₄, HNO₃</li>
+<li>Base: pH &gt; 7; tastes bitter; slippery feel; produces OH⁻ ions; NaOH</li>
+<li>Neutral: pH = 7 (pure water)</li>
+<li>pH scale: 0-14; each unit is 10× change (logarithmic)</li>
+<li>Neutralization: acid + base → salt + water</li>
+<li>Indicators: change color based on pH (litmus, phenolphthalein)</li>
+</ul></div>
+</div>
+</div></div>
+
+<div class="sc fu d3">
+<div class="ch" onclick="tog(this)"><span class="ctitle"><span class="cnum">05</span> FORCES, MOTION & NEWTON'S LAWS</span><span class="ctog">▶</span></div>
+<div class="cb">
+<div class="tgrid">
+<div class="tb"><h4>Newton's 3 Laws (Complete)</h4><ul>
+<li>1st Law (Inertia): object at rest stays at rest; object in motion stays in motion at constant velocity — unless acted on by NET force</li>
+<li>2nd Law: F = ma (force equals mass times acceleration); larger mass needs more force for same acceleration</li>
+<li>3rd Law: for every action there is an equal and opposite REACTION; forces act on DIFFERENT objects</li>
+</ul></div>
+<div class="tb"><h4>Motion Definitions</h4><ul>
+<li>Distance: total path length (scalar)</li>
+<li>Displacement: shortest distance from start to end + direction (vector)</li>
+<li>Speed: distance/time (scalar; no direction)</li>
+<li>Velocity: displacement/time + direction (vector)</li>
+<li>Acceleration: change in velocity / time (Δv/t)</li>
+<li>Deceleration: negative acceleration (slowing down)</li>
+</ul></div>
+<div class="tb"><h4>Motion Formulas</h4><ul>
+<li>Speed: v = d/t</li>
+<li>Acceleration: a = (vf − vi) / t</li>
+<li>Force: F = ma</li>
+<li>Weight: W = mg (g = 9.8 m/s² on Earth)</li>
+<li>Momentum: p = mv</li>
+<li>Work: W = Fd (force × distance)</li>
+<li>Power: P = W/t (work/time)</li>
+</ul></div>
+<div class="tb"><h4>Types of Forces</h4><ul>
+<li>Gravity: pulls toward center of Earth (9.8 m/s²)</li>
+<li>Normal force: perpendicular to surface; surface pushes back</li>
+<li>Friction: opposes motion; static (not moving) > kinetic (moving)</li>
+<li>Applied force: direct push or pull</li>
+<li>Tension: pulling force through a rope/string</li>
+<li>Air resistance (drag): opposes motion through air</li>
+<li>Net force: vector sum of ALL forces on an object</li>
+</ul></div>
+<div class="tb"><h4>Free Fall & Projectile Motion</h4><ul>
+<li>Free fall: only gravity acts on object (neglect air resistance)</li>
+<li>All objects fall at same rate regardless of mass (Galileo)</li>
+<li>Acceleration due to gravity: 9.8 m/s² downward</li>
+<li>Projectile: horizontal and vertical motion are INDEPENDENT</li>
+<li>Horizontal velocity: constant (no horizontal force)</li>
+<li>Vertical: accelerates due to gravity</li>
+</ul></div>
+<div class="tb"><h4>Momentum & Impulse</h4><ul>
+<li>Momentum: p = mv (mass × velocity)</li>
+<li>Law of Conservation of Momentum: total momentum before = total after in collision</li>
+<li>Elastic collision: KE conserved (objects bounce)</li>
+<li>Inelastic collision: objects stick together</li>
+<li>Impulse = force × time = change in momentum</li>
+</ul></div>
+</div>
+<div class="fbox">v = d/t &nbsp;|&nbsp; a = Δv/t &nbsp;|&nbsp; F = ma &nbsp;|&nbsp; W = mg &nbsp;|&nbsp; p = mv &nbsp;|&nbsp; Work = Fd</div>
+</div></div>
+
+<div class="sc fu d3">
+<div class="ch" onclick="tog(this)"><span class="ctitle"><span class="cnum">06</span> ENERGY — TYPES, CONSERVATION & TRANSFER</span><span class="ctog">▶</span></div>
+<div class="cb">
+<div class="tgrid">
+<div class="tb"><h4>Kinetic & Potential Energy</h4><ul>
+<li>Kinetic energy (KE): energy of motion — KE = ½mv²</li>
+<li>Faster speed → exponentially more KE (squared relationship)</li>
+<li>Gravitational PE: energy stored due to height — PE = mgh</li>
+<li>Elastic PE: energy stored in stretched/compressed spring</li>
+<li>Chemical PE: energy stored in molecular bonds</li>
+<li>At top of roller coaster: max PE, min KE</li>
+<li>At bottom: min PE, max KE</li>
+</ul></div>
+<div class="tb"><h4>Other Forms of Energy</h4><ul>
+<li>Thermal (heat): random kinetic energy of particles</li>
+<li>Electrical: movement of electrons through conductor</li>
+<li>Sound: mechanical waves (longitudinal); needs medium</li>
+<li>Light (radiant): electromagnetic waves; travels through vacuum</li>
+<li>Nuclear: stored in atomic nucleus; fission (split) or fusion (combine)</li>
+</ul></div>
+<div class="tb"><h4>Law of Conservation of Energy</h4><ul>
+<li>Energy cannot be created or destroyed — only converted</li>
+<li>Total energy of closed system remains constant</li>
+<li>Useful energy + "wasted" energy (usually heat) = input energy</li>
+<li>Efficiency = (useful energy out / total energy in) × 100%</li>
+</ul></div>
+<div class="tb"><h4>Heat Transfer Methods</h4><ul>
+<li>Conduction: direct contact; best in solids; metals conduct well</li>
+<li>Convection: fluid movement (liquid/gas); hot fluid rises, cool sinks — creates currents</li>
+<li>Radiation: electromagnetic waves; NO medium needed; how sun heats Earth</li>
+<li>Heat always flows from HOT to COLD</li>
+<li>Insulation: slows heat transfer</li>
+</ul></div>
+</div>
+</div></div>
+
+<div class="sc fu d3">
+<div class="ch" onclick="tog(this)"><span class="ctitle"><span class="cnum">07</span> WAVES, SOUND & ELECTROMAGNETIC SPECTRUM</span><span class="ctog">▶</span></div>
+<div class="cb">
+<div class="tgrid">
+<div class="tb"><h4>Wave Properties</h4><ul>
+<li>Wavelength (λ): distance between two identical consecutive points (crest to crest)</li>
+<li>Frequency (f): number of waves passing a point per second; unit = Hz</li>
+<li>Amplitude: maximum displacement from rest; related to ENERGY</li>
+<li>Wave speed: v = λ × f (speed = wavelength × frequency)</li>
+<li>Period: time for one complete cycle; T = 1/f</li>
+</ul></div>
+<div class="tb"><h4>Types of Waves</h4><ul>
+<li>Transverse wave: particles vibrate PERPENDICULAR to wave direction (light, water surface)</li>
+<li>Longitudinal (compressional): particles vibrate PARALLEL to wave direction (sound)</li>
+<li>Mechanical waves: need a medium (sound, water waves, seismic)</li>
+<li>Electromagnetic waves: do NOT need medium (light, radio, X-rays)</li>
+</ul></div>
+<div class="tb"><h4>Wave Behaviors</h4><ul>
+<li>Reflection: wave bounces off surface; angle in = angle out</li>
+<li>Refraction: wave bends when entering new medium (different speed)</li>
+<li>Diffraction: wave bends around obstacles or through openings</li>
+<li>Interference: constructive (amplitudes add) or destructive (amplitudes cancel)</li>
+<li>Absorption: wave energy taken in by material</li>
+</ul></div>
+<div class="tb"><h4>Electromagnetic Spectrum</h4><ul>
+<li>Low to high frequency: Radio → Microwave → Infrared → Visible → Ultraviolet → X-ray → Gamma</li>
+<li>Long to short wavelength: same order</li>
+<li>All EM waves travel at c = 3.0 × 10⁸ m/s in vacuum</li>
+<li>Higher frequency = higher energy = shorter wavelength</li>
+<li>Visible light: ROY G BIV (red = longest λ, lowest f; violet = shortest λ, highest f)</li>
+</ul></div>
+<div class="tb"><h4>Sound</h4><ul>
+<li>Longitudinal mechanical wave; needs medium</li>
+<li>Travels fastest in solids, slowest in gases</li>
+<li>Speed in air: ≈340 m/s at room temp</li>
+<li>Pitch: related to frequency (high freq = high pitch)</li>
+<li>Loudness: related to amplitude</li>
+<li>Doppler effect: frequency shifts when source or observer moves</li>
+</ul></div>
+</div>
+</div></div>
+
+<div class="sc fu d3">
+<div class="ch" onclick="tog(this)"><span class="ctitle"><span class="cnum">08</span> EARTH — LAYERS, PLATE TECTONICS & ROCKS</span><span class="ctog">▶</span></div>
+<div class="cb">
+<div class="tgrid">
+<div class="tb"><h4>Earth's Interior Layers</h4><ul>
+<li>Crust: thinnest layer; oceanic (thinner, denser, basalt) and continental (thicker, less dense, granite)</li>
+<li>Mantle: largest layer; upper mantle = lithosphere + asthenosphere; hot semi-solid rock flows slowly</li>
+<li>Outer core: liquid iron and nickel; convection creates Earth's magnetic field</li>
+<li>Inner core: solid iron and nickel; extreme pressure; hottest (≈5000°C)</li>
+</ul></div>
+<div class="tb"><h4>Plate Tectonics</h4><ul>
+<li>Lithosphere (crust + rigid upper mantle) broken into tectonic plates</li>
+<li>Plates float on asthenosphere; driven by convection currents in mantle</li>
+<li>Convergent boundary: plates collide → subduction, mountains, volcanoes, earthquakes</li>
+<li>Divergent boundary: plates move apart → rift valleys, mid-ocean ridges, seafloor spreading</li>
+<li>Transform boundary: plates slide past → earthquakes (San Andreas Fault)</li>
+</ul></div>
+<div class="tb"><h4>Earthquakes</h4><ul>
+<li>Focus (hypocenter): where earthquake starts underground</li>
+<li>Epicenter: point on surface directly above focus</li>
+<li>P-waves (primary): fastest; compressional; travel through anything</li>
+<li>S-waves (secondary): slower; shear; cannot travel through liquids</li>
+<li>Surface waves: slowest; cause most damage</li>
+<li>Richter scale: measures magnitude (each unit = 10× more energy)</li>
+<li>3 seismograph stations needed to locate epicenter (triangulation)</li>
+</ul></div>
+<div class="tb"><h4>Volcanoes</h4><ul>
+<li>Form at convergent and divergent boundaries AND hotspots</li>
+<li>Magma: molten rock underground; lava: at surface</li>
+<li>Shield volcano: gently sloping; basaltic lava; Hawaiian type</li>
+<li>Composite (stratovolcano): steep sides; explosive; Mt. St. Helens</li>
+<li>Cinder cone: small, steep; made of volcanic fragments</li>
+</ul></div>
+<div class="tb"><h4>Rock Cycle</h4><ul>
+<li>Igneous: formed from cooled magma or lava; intrusive (slow, large crystals) or extrusive (fast, small/no crystals)</li>
+<li>Sedimentary: compaction and cementation of sediments; often contains fossils; layers (strata)</li>
+<li>Metamorphic: existing rock changed by heat AND pressure (without melting)</li>
+<li>ALL rocks can transform into any other type via the rock cycle</li>
+</ul></div>
+</div>
+</div></div>
+
+<div class="sc fu d3">
+<div class="ch" onclick="tog(this)"><span class="ctitle"><span class="cnum">09</span> ATMOSPHERE, WEATHER & CLIMATE</span><span class="ctog">▶</span></div>
+<div class="cb">
+<div class="tgrid">
+<div class="tb"><h4>Atmosphere Layers</h4><ul>
+<li>Troposphere: 0–12 km; ALL weather happens here; temp decreases with altitude</li>
+<li>Stratosphere: 12–50 km; ozone layer (blocks UV); temp increases with altitude</li>
+<li>Mesosphere: 50–80 km; coldest layer; meteors burn up here</li>
+<li>Thermosphere: 80–700 km; auroras; ISS orbits here; very hot but low density</li>
+<li>Exosphere: outer edge; satellites; merges with space</li>
+</ul></div>
+<div class="tb"><h4>Water Cycle</h4><ul>
+<li>Evaporation: water surface → water vapor (solar energy drives this)</li>
+<li>Transpiration: plants release water vapor (together = evapotranspiration)</li>
+<li>Condensation: water vapor → liquid (cloud formation)</li>
+<li>Precipitation: water falls as rain, snow, sleet, or hail</li>
+<li>Runoff: flows over land into streams/rivers</li>
+<li>Infiltration: soaks into ground → groundwater</li>
+<li>Accumulation/Collection: collects in bodies of water</li>
+</ul></div>
+<div class="tb"><h4>Weather Factors</h4><ul>
+<li>Air pressure: high pressure = clear skies; low pressure = storms</li>
+<li>Air mass: large body of air with uniform temp & humidity</li>
+<li>Cold front: cold air pushing under warm → thunderstorms, quick change</li>
+<li>Warm front: warm air sliding over cold → gentle rain, gradual change</li>
+<li>Humidity: amount of water vapor in air; relative humidity = % of max</li>
+<li>Dew point: temperature at which air becomes saturated</li>
+</ul></div>
+<div class="tb"><h4>Climate & Climate Change</h4><ul>
+<li>Climate: average weather patterns over 30+ years in a region</li>
+<li>Factors affecting climate: latitude, altitude, proximity to water, ocean currents, prevailing winds</li>
+<li>Greenhouse effect: natural process; CO₂, H₂O, CH₄ trap heat in atmosphere</li>
+<li>Enhanced greenhouse effect: human CO₂ emissions intensify warming</li>
+<li>Effects: rising temps, melting ice caps, sea level rise, extreme weather, ecosystem disruption</li>
+<li>El Niño: periodic warming of Pacific Ocean; affects global weather</li>
+</ul></div>
+</div>
+</div></div>
+
+<!-- Science Flashcards -->
+<div class="sc fu d4">
+<div class="ch" onclick="tog(this)"><span class="ctitle"><span class="cnum">★</span> FLASHCARDS — Science (20 cards)</span><span class="ctog">▶</span></div>
+<div class="cb">
+<p class="fc-intro">CLICK A CARD TO FLIP IT</p>
+<div class="fc-grid" id="fc-science"></div>
+</div></div>
+
+<!-- Science Practice Test -->
+<div class="sc fu d4">
+<div class="ch" onclick="tog(this)"><span class="ctitle"><span class="cnum">✦</span> PRACTICE TEST — Science (40 Questions)</span><span class="ctog">▶</span></div>
+<div class="cb" id="quiz-science"></div>
+</div>
+
+</div><!-- /panel science -->
+
+<!-- ═══════════════════ BIOLOGY ═══════════════════ -->
+<div class="panel" id="panel-biology">
+
+<div class="sc fu d2">
+<div class="ch open" onclick="tog(this)"><span class="ctitle"><span class="cnum">01</span> CELL STRUCTURE & ORGANELLES</span><span class="ctog">▶</span></div>
+<div class="cb open">
+<div class="tgrid">
+<div class="tb"><h4>Cell Theory (3 Tenets)</h4><ul>
+<li>1. All living things are made of one or more cells</li>
+<li>2. The cell is the basic structural and functional unit of life</li>
+<li>3. All cells come from pre-existing cells (cell division)</li>
+<li>Robert Hooke: first saw cells (cork, 1665)</li>
+<li>Schleiden (plants) + Schwann (animals) + Virchow (cells from cells) = Cell Theory</li>
+</ul></div>
+<div class="tb"><h4>Prokaryotic vs Eukaryotic</h4><ul>
+<li>Prokaryotic: NO membrane-bound nucleus; DNA in nucleoid region; bacteria & archaea; smaller; simpler</li>
+<li>Eukaryotic: HAS true membrane-bound nucleus; plants, animals, fungi, protists; larger; complex organelles</li>
+<li>Both have: DNA, ribosomes, cell membrane, cytoplasm</li>
+</ul></div>
+<div class="tb"><h4>Animal Cell Organelles</h4><ul>
+<li>Nucleus: contains DNA; controls cell activities; has nuclear envelope</li>
+<li>Nucleolus: inside nucleus; makes rRNA for ribosomes</li>
+<li>Mitochondria: cellular respiration → ATP energy; has own DNA; "powerhouse"</li>
+<li>Ribosomes: protein synthesis; found on rough ER or free in cytoplasm</li>
+<li>Rough ER: studded with ribosomes; processes/transports proteins</li>
+<li>Smooth ER: no ribosomes; makes lipids; detoxifies</li>
+<li>Golgi apparatus: packages, modifies, ships proteins; "post office"</li>
+<li>Lysosome: contains digestive enzymes; breaks down waste/pathogens</li>
+<li>Vacuole: storage (small in animal cells)</li>
+<li>Centrosome/Centrioles: organize spindle fibers during cell division</li>
+<li>Cell membrane: phospholipid bilayer; selectively permeable</li>
+</ul></div>
+<div class="tb"><h4>Plant-Only Organelles</h4><ul>
+<li>Cell wall: cellulose; rigid outer layer; provides structure and protection</li>
+<li>Chloroplast: photosynthesis; has thylakoids (grana) and stroma; contains chlorophyll</li>
+<li>Large central vacuole: takes up most of cell; stores water; gives turgor pressure</li>
+<li>Plasmodesmata: channels connecting adjacent plant cells</li>
+<li>Plants have ALL animal organelles PLUS these (no centrioles, no lysosomes)</li>
+</ul></div>
+</div>
+</div></div>
+
+<div class="sc fu d2">
+<div class="ch" onclick="tog(this)"><span class="ctitle"><span class="cnum">02</span> CELL MEMBRANE & TRANSPORT</span><span class="ctog">▶</span></div>
+<div class="cb">
+<div class="tgrid">
+<div class="tb"><h4>Cell Membrane Structure</h4><ul>
+<li>Phospholipid bilayer: two layers of phospholipids</li>
+<li>Hydrophilic heads face water (inside and outside of cell)</li>
+<li>Hydrophobic tails face each other (middle)</li>
+<li>Embedded proteins: transport channels, receptors, enzymes</li>
+<li>Fluid mosaic model: membrane is flexible; components can move</li>
+<li>Selectively permeable: controls what enters and exits</li>
+</ul></div>
+<div class="tb"><h4>Passive Transport (no energy needed)</h4><ul>
+<li>Diffusion: movement from HIGH to LOW concentration (with gradient)</li>
+<li>Osmosis: diffusion of WATER through a selectively permeable membrane</li>
+<li>Facilitated diffusion: with proteins helping; still HIGH to LOW; no energy</li>
+<li>Equilibrium: equal concentration on both sides; diffusion continues but no net movement</li>
+</ul></div>
+<div class="tb"><h4>Active Transport (energy/ATP needed)</h4><ul>
+<li>Moves materials AGAINST concentration gradient (LOW to HIGH)</li>
+<li>Requires protein pumps AND ATP energy</li>
+<li>Endocytosis: cell engulfs material (phagocytosis = solids; pinocytosis = liquids)</li>
+<li>Exocytosis: cell releases material by fusing vesicle with membrane</li>
+</ul></div>
+<div class="tb"><h4>Osmosis in Cells</h4><ul>
+<li>Hypotonic solution: solute concentration LOWER than cell → water enters cell → cell swells/bursts (lysis)</li>
+<li>Hypertonic solution: solute concentration HIGHER than cell → water leaves cell → cell shrinks (crenation/plasmolysis)</li>
+<li>Isotonic solution: equal concentrations → no net water movement → cell stays normal</li>
+<li>Plant cells in hypotonic: turgid (firm — good)</li>
+<li>Plant cells in hypertonic: wilts (plasmolysis)</li>
+</ul></div>
+</div>
+</div></div>
+
+<div class="sc fu d2">
+<div class="ch" onclick="tog(this)"><span class="ctitle"><span class="cnum">03</span> PHOTOSYNTHESIS & CELLULAR RESPIRATION</span><span class="ctog">▶</span></div>
+<div class="cb">
+<div class="tgrid">
+<div class="tb"><h4>Photosynthesis</h4><ul>
+<li>Overall equation: 6CO₂ + 6H₂O + light → C₆H₁₂O₆ + 6O₂</li>
+<li>Location: chloroplasts</li>
+<li>Chlorophyll: absorbs light energy (green wavelengths reflected)</li>
+<li>Light-dependent reactions: in thylakoid membranes; split water; produce ATP, NADPH, O₂</li>
+<li>Calvin cycle (light-independent): in stroma; uses ATP+NADPH to make glucose from CO₂</li>
+<li>Inputs: CO₂ (from air), H₂O (from roots), light energy</li>
+<li>Outputs: glucose (C₆H₁₂O₆), oxygen (released to air)</li>
+</ul></div>
+<div class="tb"><h4>Cellular Respiration</h4><ul>
+<li>Overall equation: C₆H₁₂O₆ + 6O₂ → 6CO₂ + 6H₂O + ATP</li>
+<li>Purpose: convert glucose to usable ATP energy</li>
+<li>Location: mitochondria (and cytoplasm for glycolysis)</li>
+<li>Glycolysis: cytoplasm; glucose → 2 pyruvate; produces 2 ATP; no O₂ needed</li>
+<li>Krebs cycle: mitochondrial matrix; releases CO₂; produces electron carriers</li>
+<li>Electron transport chain: inner mitochondrial membrane; produces ~32-34 ATP; requires O₂</li>
+<li>Total ATP: ~36-38 ATP per glucose molecule</li>
+</ul></div>
+<div class="tb"><h4>Fermentation (Anaerobic)</h4><ul>
+<li>When O₂ is not available</li>
+<li>Lactic acid fermentation: in muscle cells; glucose → lactic acid; causes muscle burning/fatigue</li>
+<li>Alcoholic fermentation: in yeast; glucose → ethanol + CO₂</li>
+<li>Only produces 2 ATP (much less than aerobic)</li>
+</ul></div>
+<div class="tb"><h4>Photosynthesis vs Respiration</h4><ul>
+<li>They are essentially REVERSE reactions</li>
+<li>Photosynthesis: uses CO₂ + H₂O + light → makes glucose + O₂</li>
+<li>Respiration: uses glucose + O₂ → makes CO₂ + H₂O + energy</li>
+<li>Autotrophs (plants): do BOTH photosynthesis and respiration</li>
+<li>Heterotrophs (animals): only cellular respiration</li>
+</ul></div>
+</div>
+</div></div>
+
+<div class="sc fu d3">
+<div class="ch" onclick="tog(this)"><span class="ctitle"><span class="cnum">04</span> CELL DIVISION — MITOSIS & MEIOSIS</span><span class="ctog">▶</span></div>
+<div class="cb">
+<div class="tgrid">
+<div class="tb"><h4>The Cell Cycle</h4><ul>
+<li>Interphase: G1 (growth) → S (DNA synthesis/replication) → G2 (prep for division)</li>
+<li>Mitotic phase: PMAT + cytokinesis</li>
+<li>DNA replication in S phase: each chromosome duplicated → two sister chromatids joined at centromere</li>
+<li>Cell checkpoints: ensure cell is ready to divide; prevents errors</li>
+<li>Cancer: cell checkpoint failures; uncontrolled division</li>
+</ul></div>
+<div class="tb"><h4>Mitosis Phases (PMAT)</h4><ul>
+<li>Prophase: chromatin condenses into visible chromosomes; nucleolus disappears; spindle forms; nuclear envelope breaks down</li>
+<li>Metaphase: chromosomes line up at cell's equator (metaphase plate); spindle attaches to centromeres</li>
+<li>Anaphase: sister chromatids pulled to opposite poles; cell elongates</li>
+<li>Telophase: nuclear envelopes reform around each set; chromosomes decondense</li>
+<li>Cytokinesis: cytoplasm divides (cleavage furrow in animals; cell plate in plants)</li>
+</ul></div>
+<div class="tb"><h4>Mitosis Results</h4><ul>
+<li>Produces 2 genetically IDENTICAL daughter cells</li>
+<li>Same chromosome number as parent cell (diploid 2n → 2n)</li>
+<li>Human body cells: 46 chromosomes (23 pairs)</li>
+<li>Purpose: growth, tissue repair, asexual reproduction</li>
+</ul></div>
+<div class="tb"><h4>Meiosis Overview</h4><ul>
+<li>Produces sex cells (gametes): sperm and eggs</li>
+<li>Two rounds of division: Meiosis I + Meiosis II</li>
+<li>Result: 4 genetically UNIQUE haploid cells (n)</li>
+<li>Haploid: half the chromosome number (23 in humans)</li>
+<li>Crossing over (synapsis) in Prophase I: homologous chromosomes exchange DNA segments → genetic variation</li>
+<li>Independent assortment: homologs separate randomly → more variation</li>
+</ul></div>
+<div class="tb"><h4>Mitosis vs Meiosis Comparison</h4><ul>
+<li>Mitosis: 1 division, 2 cells, diploid, identical, body cells</li>
+<li>Meiosis: 2 divisions, 4 cells, haploid, unique, sex cells</li>
+<li>Both start with DNA replication in S phase</li>
+<li>Fertilization: sperm (n=23) + egg (n=23) → zygote (2n=46)</li>
+</ul></div>
+</div>
+</div></div>
+
+<div class="sc fu d3">
+<div class="ch" onclick="tog(this)"><span class="ctitle"><span class="cnum">05</span> DNA, GENES & PROTEIN SYNTHESIS</span><span class="ctog">▶</span></div>
+<div class="cb">
+<div class="tgrid">
+<div class="tb"><h4>DNA Structure</h4><ul>
+<li>Double helix: two polynucleotide strands wound around each other</li>
+<li>Nucleotide structure: deoxyribose sugar + phosphate group + nitrogenous base</li>
+<li>4 bases: Adenine (A), Thymine (T), Guanine (G), Cytosine (C)</li>
+<li>Base pairing rules: A–T (2 hydrogen bonds); G–C (3 hydrogen bonds)</li>
+<li>Antiparallel strands: run in opposite directions (5'→3' and 3'→5')</li>
+<li>Discovered by Watson & Crick in 1953 using Franklin's X-ray crystallography</li>
+</ul></div>
+<div class="tb"><h4>DNA Replication</h4><ul>
+<li>Semiconservative: each new DNA has one original + one new strand</li>
+<li>Helicase: unwinds and separates the double helix</li>
+<li>DNA polymerase: adds new complementary nucleotides</li>
+<li>Occurs during S phase of interphase</li>
+<li>Occurs in the NUCLEUS</li>
+</ul></div>
+<div class="tb"><h4>Transcription (DNA → RNA)</h4><ul>
+<li>Occurs in the NUCLEUS</li>
+<li>Template strand of DNA read by RNA polymerase</li>
+<li>Produces messenger RNA (mRNA)</li>
+<li>RNA uses Uracil (U) instead of Thymine (T)</li>
+<li>mRNA carries genetic code out of nucleus to ribosome</li>
+</ul></div>
+<div class="tb"><h4>Translation (RNA → Protein)</h4><ul>
+<li>Occurs at RIBOSOMES</li>
+<li>Codon: sequence of 3 mRNA bases coding for one amino acid</li>
+<li>tRNA: carries amino acids; anticodon matches mRNA codon</li>
+<li>Start codon: AUG (codes for methionine)</li>
+<li>Stop codons: UAA, UAG, UGA (end translation)</li>
+<li>Polypeptide chain → folds into protein</li>
+</ul></div>
+<div class="tb"><h4>Mutations</h4><ul>
+<li>Point mutation: one base changed (substitution)</li>
+<li>Frameshift: insertion or deletion of bases; shifts reading frame; often devastating</li>
+<li>Chromosomal mutation: large segment deleted, duplicated, inverted, or translocated</li>
+<li>Somatic mutation: body cell; not passed to offspring</li>
+<li>Germline mutation: in sperm or egg; CAN be inherited</li>
+<li>Mutagens: UV light, X-rays, chemicals, viruses</li>
+</ul></div>
+</div>
+</div></div>
+
+<div class="sc fu d3">
+<div class="ch" onclick="tog(this)"><span class="ctitle"><span class="cnum">06</span> GENETICS & HEREDITY — MENDEL & BEYOND</span><span class="ctog">▶</span></div>
+<div class="cb">
+<div class="tgrid">
+<div class="tb"><h4>Mendelian Genetics</h4><ul>
+<li>Gregor Mendel: studied peas; Father of Genetics</li>
+<li>Law of Segregation: two alleles for each trait separate during gamete formation; offspring get one from each parent</li>
+<li>Law of Independent Assortment: genes on different chromosomes sort independently of each other</li>
+<li>Dominant allele (capital): expressed even when only one copy present</li>
+<li>Recessive allele (lowercase): ONLY expressed when two copies present (homozygous recessive)</li>
+</ul></div>
+<div class="tb"><h4>Genotype & Phenotype</h4><ul>
+<li>Alleles: different versions of a gene</li>
+<li>Genotype: actual allele combination (TT, Tt, tt)</li>
+<li>Phenotype: observable physical trait (tall vs short)</li>
+<li>Homozygous dominant: TT (shows dominant trait)</li>
+<li>Heterozygous: Tt (shows dominant trait — carrier)</li>
+<li>Homozygous recessive: tt (shows recessive trait)</li>
+</ul></div>
+<div class="tb"><h4>Punnett Squares</h4><ul>
+<li>Monohybrid (one trait): 2×2 grid</li>
+<li>Tt × Tt: 1 TT : 2 Tt : 1 tt = 3:1 phenotype ratio</li>
+<li>Tt × tt (testcross): 1 Tt : 1 tt = 1:1 ratio</li>
+<li>Dihybrid (two traits): 4×4 grid; 9:3:3:1 ratio</li>
+<li>Probability: each cross is independent; multiply probabilities</li>
+</ul></div>
+<div class="tb"><h4>Non-Mendelian Inheritance</h4><ul>
+<li>Codominance: BOTH alleles fully expressed; neither dominant (AB blood type; roan cattle)</li>
+<li>Incomplete dominance: blended phenotype (RR=red, WW=white, RW=pink)</li>
+<li>Multiple alleles: more than 2 alleles in population (ABO blood type: A, B, O)</li>
+<li>Polygenic inheritance: multiple genes control one trait (height, skin color, eye color)</li>
+<li>Environmental influence: phenotype affected by environment (temperature, nutrition)</li>
+</ul></div>
+<div class="tb"><h4>Sex-Linked Traits</h4><ul>
+<li>Sex chromosomes: XX = female; XY = male</li>
+<li>X-linked traits: carried on X chromosome (color blindness, hemophilia)</li>
+<li>Males are more often affected by X-linked recessive (only one X)</li>
+<li>Carrier female: heterozygous; has one copy but shows normal phenotype</li>
+<li>X-linked recessive: skips generations; more common in males</li>
+</ul></div>
+<div class="tb"><h4>Blood Types (ABO)</h4><ul>
+<li>Type A: A antigens on RBC; A or O alleles (AA or AO)</li>
+<li>Type B: B antigens; BB or BO</li>
+<li>Type AB: both A and B antigens; AB (codominant)</li>
+<li>Type O: no antigens; OO (recessive)</li>
+<li>Universal donor: O negative</li>
+<li>Universal recipient: AB positive</li>
+<li>Rh factor: + or − is separate from ABO</li>
+</ul></div>
+</div>
+</div></div>
+
+<div class="sc fu d3">
+<div class="ch" onclick="tog(this)"><span class="ctitle"><span class="cnum">07</span> EVOLUTION & NATURAL SELECTION</span><span class="ctog">▶</span></div>
+<div class="cb">
+<div class="tgrid">
+<div class="tb"><h4>Darwin's Theory of Evolution</h4><ul>
+<li>Natural selection: mechanism of evolution; "survival of the fittest"</li>
+<li>Fitness: ability to survive AND reproduce in a given environment</li>
+<li>Variation: individuals in a population differ from each other</li>
+<li>Heritability: traits can be passed to offspring</li>
+<li>Differential reproduction: individuals with favorable traits reproduce more</li>
+<li>Over time: favorable traits become more common in population</li>
+</ul></div>
+<div class="tb"><h4>Types of Natural Selection</h4><ul>
+<li>Directional selection: one extreme phenotype favored → shifts population mean</li>
+<li>Stabilizing selection: intermediate phenotype favored → reduces variation</li>
+<li>Disruptive selection: both extremes favored → may lead to speciation</li>
+<li>Sexual selection: traits favored by mate choice (peacock feathers)</li>
+<li>Artificial selection: humans selectively breed organisms (dog breeds, crops)</li>
+</ul></div>
+<div class="tb"><h4>Evidence for Evolution</h4><ul>
+<li>Fossil record: shows change in species over time; transitional fossils</li>
+<li>Comparative anatomy: homologous structures (same origin, different function — human arm, whale flipper, bat wing)</li>
+<li>Analogous structures: different origin, same function (convergent evolution)</li>
+<li>Vestigial structures: reduced/functionless structures (human coccyx, whale pelvis)</li>
+<li>Molecular evidence: DNA/protein similarities reflect evolutionary relationships</li>
+<li>Biogeography: geographic distribution of species (Galápagos finches)</li>
+<li>Direct observation: bacteria evolving antibiotic resistance</li>
+</ul></div>
+<div class="tb"><h4>Speciation & Mechanisms</h4><ul>
+<li>Speciation: formation of new species</li>
+<li>Reproductive isolation: populations can no longer interbreed</li>
+<li>Allopatric speciation: geographic barrier separates populations</li>
+<li>Genetic drift: random changes in allele frequencies (small populations)</li>
+<li>Founder effect: small group colonizes new area; limited genetic variation</li>
+<li>Bottleneck effect: population severely reduced; loss of variation</li>
+<li>Gene flow: movement of alleles between populations</li>
+</ul></div>
+</div>
+</div></div>
+
+<div class="sc fu d3">
+<div class="ch" onclick="tog(this)"><span class="ctitle"><span class="cnum">08</span> ECOLOGY — ECOSYSTEMS & INTERACTIONS</span><span class="ctog">▶</span></div>
+<div class="cb">
+<div class="tgrid">
+<div class="tb"><h4>Ecological Levels of Organization</h4><ul>
+<li>Atom → Molecule → Organelle → Cell → Tissue → Organ → Organ System → Organism</li>
+<li>Population: all individuals of one species in an area</li>
+<li>Community: all populations of different species in an area</li>
+<li>Ecosystem: community + all abiotic (non-living) factors</li>
+<li>Biome: large ecosystem defined by climate and vegetation</li>
+<li>Biosphere: all life on Earth + environments</li>
+</ul></div>
+<div class="tb"><h4>Energy Flow in Ecosystems</h4><ul>
+<li>Producers (autotrophs): make own food via photosynthesis (plants, algae, cyanobacteria)</li>
+<li>Primary consumers (herbivores): eat producers</li>
+<li>Secondary consumers: eat primary consumers</li>
+<li>Tertiary consumers: eat secondary consumers (apex predators)</li>
+<li>Decomposers: bacteria, fungi; break down dead matter; recycle nutrients</li>
+<li>Detritivores: eat dead organic matter (earthworms, millipedes)</li>
+<li>10% rule: only 10% of energy transfers to next trophic level; 90% lost as heat</li>
+</ul></div>
+<div class="tb"><h4>Symbiotic Relationships</h4><ul>
+<li>Mutualism: BOTH species benefit (+/+) — clownfish & anemone, bees & flowers</li>
+<li>Commensalism: one benefits, other unaffected (+/0) — barnacles on whale</li>
+<li>Parasitism: parasite benefits, host harmed (+/−) — tapeworm in host</li>
+<li>Predation: predator kills and eats prey (+/−) — hawk & rabbit</li>
+<li>Competition: both species harmed (−/−) — two species competing for same food</li>
+<li>Amensalism: one harmed, other unaffected (−/0)</li>
+</ul></div>
+<div class="tb"><h4>Population Dynamics</h4><ul>
+<li>Carrying capacity (K): maximum population an environment can support</li>
+<li>Limiting factors: food, water, space, disease, predators</li>
+<li>Biotic factors: living (predators, disease, competition)</li>
+<li>Abiotic factors: non-living (temperature, water, sunlight, pH)</li>
+<li>Logistic growth: S-curve; levels off at carrying capacity</li>
+<li>Exponential growth: J-curve; unrestricted growth (no limiting factors)</li>
+</ul></div>
+<div class="tb"><h4>Biogeochemical Cycles</h4><ul>
+<li>Carbon cycle: photosynthesis removes CO₂; respiration/combustion adds CO₂; fossil fuels release stored carbon</li>
+<li>Nitrogen cycle: N₂ → nitrates via nitrogen-fixing bacteria → plants → animals → decomposers → N₂</li>
+<li>Water cycle: evaporation → transpiration → condensation → precipitation → runoff → infiltration</li>
+<li>Phosphorus cycle: weathering of rocks → soil → plants → animals → decomposers → soil</li>
+</ul></div>
+<div class="tb"><h4>Biomes of the World</h4><ul>
+<li>Tropical rainforest: highest biodiversity; hot, wet year-round</li>
+<li>Temperate deciduous forest: four seasons; deciduous trees</li>
+<li>Grassland (savanna): few trees; seasonal rainfall; large herbivores</li>
+<li>Desert: &lt;25cm rain/year; extreme temperatures; low biodiversity</li>
+<li>Tundra: treeless; permafrost; very cold; brief summer</li>
+<li>Taiga (boreal forest): coniferous trees; cold winters; moose, bears</li>
+<li>Aquatic: freshwater (lakes, rivers, wetlands) and marine (ocean, coral reef, estuary)</li>
+</ul></div>
+</div>
+</div></div>
+
+<div class="sc fu d3">
+<div class="ch" onclick="tog(this)"><span class="ctitle"><span class="cnum">09</span> HUMAN BODY SYSTEMS (ALL 11)</span><span class="ctog">▶</span></div>
+<div class="cb">
+<table class="vt">
+<tr><th>System</th><th>Key Organs</th><th>Main Function</th><th>Key Facts</th></tr>
+<tr><td>Circulatory</td><td>Heart, arteries, veins, capillaries, blood</td><td>Transport O₂, nutrients, hormones, waste</td><td>Heart has 4 chambers; arteries carry away from heart; veins carry to heart; capillaries = exchange sites</td></tr>
+<tr><td>Respiratory</td><td>Lungs, trachea, bronchi, diaphragm, alveoli</td><td>Gas exchange: O₂ in, CO₂ out</td><td>Alveoli = tiny air sacs; huge surface area; diaphragm contracts to inhale</td></tr>
+<tr><td>Digestive</td><td>Mouth, esophagus, stomach, small intestine, large intestine, liver, pancreas</td><td>Mechanical and chemical digestion; nutrient absorption</td><td>Small intestine = main absorption (villi); liver makes bile; pancreas makes enzymes</td></tr>
+<tr><td>Nervous</td><td>Brain, spinal cord, nerves, neurons</td><td>Control center; coordinates responses; receives sensory input</td><td>3 types of neurons: sensory, motor, interneuron; reflex arcs bypass brain</td></tr>
+<tr><td>Skeletal</td><td>Bones (206), cartilage, ligaments, joints</td><td>Support, protection, movement, RBC production, mineral storage</td><td>Ligament connects bone to bone; cartilage at joints; bone marrow makes blood cells</td></tr>
+<tr><td>Muscular</td><td>Skeletal, cardiac, smooth muscle</td><td>Movement, circulation, digestion</td><td>Skeletal = voluntary; cardiac = involuntary, heart only; smooth = involuntary, organs</td></tr>
+<tr><td>Immune</td><td>White blood cells, lymph nodes, thymus, spleen, antibodies</td><td>Defend against pathogens; memory</td><td>Nonspecific (innate) and specific (adaptive) immunity; vaccines create memory</td></tr>
+<tr><td>Endocrine</td><td>Hypothalamus, pituitary, thyroid, adrenal, pancreas, gonads</td><td>Chemical regulation via hormones; homeostasis</td><td>Insulin (pancreas) lowers blood glucose; glucagon raises it; feedback loops maintain balance</td></tr>
+<tr><td>Excretory</td><td>Kidneys, ureters, bladder, urethra, skin, lungs</td><td>Remove metabolic waste; maintain fluid balance</td><td>Kidneys filter blood; nephrons = functional unit; urea from protein breakdown</td></tr>
+<tr><td>Reproductive</td><td>Female: ovaries, uterus, fallopian tubes; Male: testes, vas deferens</td><td>Produce gametes; create offspring</td><td>Meiosis produces eggs and sperm; fertilization → zygote</td></tr>
+<tr><td>Integumentary</td><td>Skin, hair, nails, sweat glands</td><td>Protection, temperature regulation, sensation</td><td>Largest organ by surface area; 3 layers: epidermis, dermis, hypodermis</td></tr>
+</table>
+</div></div>
+
+<!-- Biology Flashcards -->
+<div class="sc fu d4">
+<div class="ch" onclick="tog(this)"><span class="ctitle"><span class="cnum">★</span> FLASHCARDS — Biology (20 cards)</span><span class="ctog">▶</span></div>
+<div class="cb">
+<p class="fc-intro">CLICK A CARD TO FLIP IT</p>
+<div class="fc-grid" id="fc-biology"></div>
+</div></div>
+
+<!-- Biology Practice Test -->
+<div class="sc fu d4">
+<div class="ch" onclick="tog(this)"><span class="ctitle"><span class="cnum">✦</span> PRACTICE TEST — Biology (40 Questions)</span><span class="ctog">▶</span></div>
+<div class="cb" id="quiz-biology"></div>
+</div>
+
+</div><!-- /panel biology -->
+</div><!-- /app -->
+
+<script>
+// ── BOOT ──
+(function(){
+  const lines=document.querySelectorAll('[id^="b"]');
+  let d=0;
+  lines.forEach((el,i)=>{d+=i===0?120:210;setTimeout(()=>el.classList.add('show'),d);});
+  setTimeout(()=>{const b=document.getElementById('boot');b.classList.add('out');setTimeout(()=>b.remove(),700);},d+800);
+})();
+
+// ── DOT CANVAS ──
+(function(){
+  const cv=document.getElementById('dot-canvas');
+  const cx=cv.getContext('2d');
+  let W,H,dots=[];
+  const COLS=60,ROWS=38;
+  function resize(){W=cv.width=window.innerWidth;H=cv.height=window.innerHeight;init();}
+  function init(){
+    dots=[];
+    const xs=W/COLS,ys=H/ROWS;
+    for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
+      const bx=c*xs+xs/2,by=r*ys+ys/2;
+      dots.push({bx,by,x:bx,y:by,sz:Math.random()*1.2+0.3,tsz:Math.random()*1.2+0.3,a:Math.random()*.35+.05,ta:Math.random()*.35+.05,ph:Math.random()*Math.PI*2,sp:Math.random()*.009+.003,wa:Math.random()*7+2,wa2:Math.random()*3+1});
+    }
+  }
+  let mx=0,my=0;
+  window.addEventListener('mousemove',e=>{mx=e.clientX;my=e.clientY;});
+  function draw(){
+    cx.clearRect(0,0,W,H);
+    dots.forEach(d=>{
+      d.ph+=d.sp;
+      const tx=d.bx+Math.sin(d.ph+d.bx*.01)*d.wa;
+      const ty=d.by+Math.cos(d.ph*.7+d.by*.01)*d.wa2;
+      d.x+=(tx-d.x)*.04;
+      d.y+=(ty-d.y)*.04;
+      const dx=d.x-mx,dy=d.y-my,dist=Math.sqrt(dx*dx+dy*dy);
+      if(dist<100){const f=(100-dist)/100;d.x+=dx/dist*f*16;d.y+=dy/dist*f*16;}
+      if(Math.random()<.004)d.tsz=Math.random()*2+.2;
+      d.sz+=(d.tsz-d.sz)*.03;
+      if(Math.random()<.004)d.ta=Math.random()*.5+.03;
+      d.a+=(d.ta-d.a)*.025;
+      const sh=.5+.5*Math.sin(d.ph*2.1);
+      cx.beginPath();cx.arc(d.x,d.y,d.sz,0,Math.PI*2);
+      cx.fillStyle=sh>.65?`rgba(255,255,255,${d.a})`:`rgba(160,160,160,${d.a*.45})`;
+      cx.fill();
+    });
+    requestAnimationFrame(draw);
+  }
+  window.addEventListener('resize',resize);
+  resize();draw();
+})();
+
+// ── CARD TOGGLE ──
+function tog(h){const b=h.nextElementSibling;const o=b.classList.contains('open');b.classList.toggle('open',!o);h.classList.toggle('open',!o);}
+
+// ── TABS ──
+document.querySelectorAll('.tab').forEach(t=>{
+  t.addEventListener('click',()=>{
+    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(x=>x.classList.remove('active'));
+    t.classList.add('active');
+    document.getElementById('panel-'+t.dataset.panel).classList.add('active');
+    buildAll();
+  });
+});
+
+// ── FLASHCARD DATA ──
+const fcData={
+  prealgebra:[
+    {q:"What is an irrational number?",a:"Cannot be expressed as a/b; decimal never ends or repeats. Examples: π, √2, √3, e"},
+    {q:"What does PEMDAS stand for?",a:"Parentheses, Exponents, Multiply/Divide (left to right), Add/Subtract (left to right)"},
+    {q:"How do you divide fractions?",a:"Keep the first fraction, Change ÷ to ×, Flip the second fraction (KCF). Example: ½ ÷ ⅓ = ½ × 3/1 = 3/2"},
+    {q:"What happens to the inequality sign when dividing by a negative?",a:"The sign FLIPS direction. Example: -2x < 6 becomes x > -3 after dividing by -2"},
+    {q:"Pythagorean Theorem?",a:"a² + b² = c² — only for RIGHT triangles. c is always the hypotenuse (longest side, opposite right angle)"},
+    {q:"Formula: Area of a circle?",a:"A = πr² (r = radius). Circumference: C = 2πr = πd"},
+    {q:"What is absolute value?",a:"Distance from zero on number line. Always ≥ 0. |-7| = 7 and |7| = 7"},
+    {q:"What is the probability formula?",a:"P(event) = favorable outcomes / total possible outcomes. Result is between 0 and 1"},
+    {q:"Mean, median, mode — definitions?",a:"Mean = average (sum÷count). Median = middle value when ordered. Mode = most frequent value"},
+    {q:"Distributive Property?",a:"a(b+c) = ab + ac. Multiply EVERY term inside the parentheses"},
+    {q:"What is constant of proportionality?",a:"The k in y=kx; the unit rate; ratio y/x which stays constant in a proportional relationship"},
+    {q:"How to solve a two-step equation?",a:"Step 1: Undo addition or subtraction. Step 2: Undo multiplication or division. Always do same thing to both sides"},
+    {q:"Complementary vs supplementary angles?",a:"Complementary = add to 90°. Supplementary = add to 180°"},
+    {q:"Product rule for exponents?",a:"xᵃ × xᵇ = xᵃ⁺ᵇ — SAME base, ADD the exponents"},
+    {q:"What is a proportion?",a:"Two equal ratios: a/b = c/d. Solve by cross-multiplying: ad = bc"},
+    {q:"How to calculate percent change?",a:"% change = (new − old) / old × 100. Positive = increase, negative = decrease"},
+    {q:"Volume of a rectangular prism?",a:"V = length × width × height"},
+    {q:"What are vertical angles?",a:"Angles formed across from each other at an intersection. They are ALWAYS equal"},
+    {q:"GCF vs LCM?",a:"GCF: greatest common factor (largest number dividing both). LCM: least common multiple (smallest shared multiple)"},
+    {q:"Simple Interest formula?",a:"I = Prt (Principal × rate as decimal × time in years)"},
+  ],
+  algebra:[
+    {q:"Slope formula?",a:"m = (y₂−y₁)/(x₂−x₁) = rise/run. Positive: rises. Negative: falls. Zero: horizontal. Undefined: vertical"},
+    {q:"Slope-intercept form?",a:"y = mx + b. m = slope, b = y-intercept (where line crosses y-axis)"},
+    {q:"Quadratic formula?",a:"x = [−b ± √(b²−4ac)] / 2a. Use when ax²+bx+c=0. The ± gives two solutions"},
+    {q:"What does the discriminant tell you?",a:"b²−4ac: If >0 → two real solutions. If =0 → one solution. If <0 → no real solutions"},
+    {q:"How to factor x²+bx+c?",a:"Find two numbers that MULTIPLY to c AND ADD to b. Then write as (x+#)(x+#)"},
+    {q:"Difference of squares?",a:"a² − b² = (a+b)(a−b). Example: x²−25 = (x+5)(x−5)"},
+    {q:"FOIL method?",a:"First + Outer + Inner + Last when multiplying two binomials. (x+3)(x+4) = x²+4x+3x+12 = x²+7x+12"},
+    {q:"What is the vertical line test?",a:"If ANY vertical line crosses the graph more than once, it is NOT a function"},
+    {q:"Parallel vs perpendicular slopes?",a:"Parallel: SAME slope. Perpendicular: slopes are negative reciprocals (m₁×m₂=−1)"},
+    {q:"xᵃ × xᵇ = ?",a:"xᵃ⁺ᵇ — Product rule: same base, ADD the exponents"},
+    {q:"x⁰ = ? (x≠0)",a:"1. Any nonzero number raised to the zero power equals 1"},
+    {q:"What is a function?",a:"A relationship where each input (x) has exactly ONE output (y). Every x maps to exactly one y"},
+    {q:"How many solutions for a system of equations with parallel lines?",a:"NO solution. Parallel lines never intersect (same slope, different y-intercept)"},
+    {q:"Vertex formula for parabola?",a:"x-coordinate of vertex = −b/2a. Plug back in to find y. Axis of symmetry: x = −b/2a"},
+    {q:"Point-slope form?",a:"y − y₁ = m(x − x₁). Use when you have a point (x₁,y₁) and slope m"},
+    {q:"What is scientific notation?",a:"a × 10ⁿ where 1 ≤ a < 10. Large numbers: positive n. Small numbers: negative n"},
+    {q:"How to solve by elimination?",a:"Multiply equations so one variable's coefficients are opposites, then ADD the equations — that variable cancels"},
+    {q:"(a+b)² = ?",a:"a² + 2ab + b². Don't forget the middle term! Common mistake to write a²+b²"},
+    {q:"What does domain and range mean?",a:"Domain = all valid inputs (x-values). Range = all valid outputs (y-values) of a function"},
+    {q:"x⁻ⁿ = ?",a:"1/xⁿ. Negative exponent means move to denominator. Example: 2⁻³ = 1/2³ = 1/8"},
+  ],
+  science:[
+    {q:"What charge does each subatomic particle have?",a:"Proton: positive (+). Neutron: neutral (0). Electron: negative (−). Protons and neutrons in nucleus"},
+    {q:"Newton's 2nd Law?",a:"F = ma. Force = mass × acceleration. More mass needs more force for same acceleration"},
+    {q:"Newton's 1st Law?",a:"Law of Inertia: objects at rest stay at rest, objects in motion stay in motion — unless a NET force acts"},
+    {q:"Newton's 3rd Law?",a:"For every action there is an equal and opposite reaction. Forces act on DIFFERENT objects"},
+    {q:"Difference between weather and climate?",a:"Weather = short-term atmospheric conditions right now. Climate = average weather patterns over 30+ years"},
+    {q:"Earth's layers in order?",a:"Crust (thinnest) → Mantle (largest) → Outer Core (LIQUID iron+nickel) → Inner Core (SOLID, hottest)"},
+    {q:"What is kinetic energy?",a:"Energy of motion. KE = ½mv². Faster speed = exponentially more energy (squared relationship)"},
+    {q:"3 types of heat transfer?",a:"Conduction (direct contact), Convection (fluid movement, hot rises), Radiation (EM waves, no medium needed)"},
+    {q:"Independent vs dependent variable?",a:"Independent = what YOU change (x-axis). Dependent = what you MEASURE as result (y-axis)"},
+    {q:"Speed formula?",a:"v = d/t (speed = distance ÷ time). Units: m/s, km/h, mph"},
+    {q:"Signs of a chemical change?",a:"Gas/bubbles produced, precipitate forms, color change, energy (heat/light) absorbed or released, odor change"},
+    {q:"What is the electromagnetic spectrum?",a:"Radio → Microwave → Infrared → Visible → UV → X-ray → Gamma. All travel at c=3×10⁸ m/s"},
+    {q:"Atomic number vs mass number?",a:"Atomic number = # of protons (defines the element). Mass number = protons + neutrons"},
+    {q:"Physical vs chemical change?",a:"Physical: no new substance, often reversible (melting, cutting). Chemical: NEW substance formed, usually irreversible (burning, rusting)"},
+    {q:"What causes earthquakes?",a:"Movement of tectonic plates along fault lines. Most at convergent (colliding) or transform (sliding) boundaries"},
+    {q:"Steps of the water cycle?",a:"Evaporation → Transpiration → Condensation (clouds form) → Precipitation → Runoff/Infiltration → Collection"},
+    {q:"What layer does weather occur in?",a:"Troposphere — the lowest layer of atmosphere (0-12 km). Temperature decreases with altitude"},
+    {q:"Difference between mass and weight?",a:"Mass: amount of matter (constant everywhere, measured in kg). Weight: force of gravity on mass (W=mg, varies by location)"},
+    {q:"What is the pH scale?",a:"0-14 scale. <7 = acid. >7 = base. =7 = neutral. Each unit = 10× change (logarithmic)"},
+    {q:"Transverse vs longitudinal wave?",a:"Transverse: vibration perpendicular to wave direction (light). Longitudinal: vibration parallel (sound)"},
+  ],
+  biology:[
+    {q:"What organelle does photosynthesis?",a:"Chloroplast — found only in plant cells. Contains chlorophyll. Location of light reactions (thylakoids) and Calvin cycle (stroma)"},
+    {q:"What is the 'powerhouse of the cell'?",a:"Mitochondria — performs cellular respiration to make ATP energy. Has its own DNA"},
+    {q:"Photosynthesis equation?",a:"6CO₂ + 6H₂O + light energy → C₆H₁₂O₆ + 6O₂ (glucose + oxygen produced)"},
+    {q:"Cellular respiration equation?",a:"C₆H₁₂O₆ + 6O₂ → 6CO₂ + 6H₂O + ATP. Produces ~36-38 ATP per glucose"},
+    {q:"Mitosis vs meiosis?",a:"Mitosis: 2 identical diploid body cells (growth/repair). Meiosis: 4 unique haploid sex cells (reproduction)"},
+    {q:"DNA base pairing rules?",a:"A pairs with T (2 bonds). G pairs with C (3 bonds). In RNA: A pairs with U (uracil replaces thymine)"},
+    {q:"What is natural selection?",a:"Individuals with favorable traits survive and reproduce more, passing traits to offspring. Drives evolution over generations"},
+    {q:"10% rule in ecology?",a:"Only 10% of energy at one trophic level transfers to the next. 90% is lost as heat — that's why food chains are short"},
+    {q:"Dominant vs recessive allele?",a:"Dominant (capital): expressed with just ONE copy. Recessive (lowercase): only expressed when you have TWO copies (homozygous)"},
+    {q:"What is osmosis?",a:"Diffusion of WATER through a selectively permeable membrane from low solute concentration to high solute concentration"},
+    {q:"What is the cell theory?",a:"1) All life is made of cells. 2) Cell = basic unit of life. 3) All cells come from pre-existing cells (Schleiden, Schwann, Virchow)"},
+    {q:"Plant cell vs animal cell differences?",a:"Plant only: cell wall (cellulose), chloroplasts, large central vacuole. Animal only: centrioles, lysosomes"},
+    {q:"What is a codon?",a:"A sequence of 3 mRNA bases that codes for one amino acid during translation. Start codon = AUG, Stop = UAA/UAG/UGA"},
+    {q:"Genotype vs phenotype?",a:"Genotype = actual allele combination (TT, Tt, tt). Phenotype = physical observable trait (tall or short)"},
+    {q:"Monohybrid cross Tt × Tt ratio?",a:"Genotype: 1 TT : 2 Tt : 1 tt. Phenotype: 3 dominant : 1 recessive (3:1 ratio)"},
+    {q:"Mutualism, commensalism, parasitism?",a:"Mutualism: +/+ both benefit. Commensalism: +/0 one benefits, other neutral. Parasitism: +/− parasite benefits, host harmed"},
+    {q:"Active vs passive transport?",a:"Passive: no energy needed, moves HIGH to LOW concentration (diffusion, osmosis). Active: needs ATP, moves AGAINST gradient"},
+    {q:"What are homologous structures?",a:"Same anatomical origin in different species but different function — evidence of common ancestor (human arm, whale flipper, bat wing)"},
+    {q:"Lactic acid fermentation?",a:"Anaerobic respiration in muscle cells. Glucose → lactic acid + 2 ATP. Causes muscle soreness/burning during intense exercise"},
+    {q:"What is carrying capacity?",a:"Maximum population size an environment can sustain given available resources. Population levels off at K in logistic growth"},
+  ]
+};
+
+// ── QUIZ DATA ──
+const quizData={
+  prealgebra:[
+    {q:"What type of number is √5?",c:["Rational","Irrational","Integer","Whole"],a:1},
+    {q:"Evaluate: 3 + 4² × 2",c:["50","34","25","98"],a:1},
+    {q:"What is |-12|?",c:["-12","0","12","144"],a:2},
+    {q:"Solve: x + 9 = 23",c:["x = 32","x = 14","x = 9","x = 207"],a:1},
+    {q:"Solve: 4x − 3 = 17",c:["x = 5","x = 3.5","x = 14","x = 4"],a:0},
+    {q:"What is ¾ ÷ ⅜?",c:["9/32","2","6/8","3/32"],a:1},
+    {q:"20% of 85 is:",c:["4.25","17","20","85"],a:1},
+    {q:"Inequality rule: when you divide by a negative number, the sign...",c:["Stays same","Flips","Disappears","Doubles"],a:1},
+    {q:"Area of a triangle with base 10 and height 6:",c:["60","30","16","15"],a:1},
+    {q:"Pythagorean theorem: a=3, b=4, c=?",c:["5","7","9","12"],a:0},
+    {q:"What is the slope (rate of change) from (0,0) to (4,8)?",c:["2","4","0.5","8"],a:0},
+    {q:"Simplify: 3x + 5y − x + 2y",c:["2x + 7y","4x + 3y","8xy","2x − 7y"],a:0},
+    {q:"Volume of a rectangular prism: l=5, w=3, h=4",c:["60","24","47","35"],a:0},
+    {q:"5² × 5³ = ?",c:["5⁵","25⁵","5⁶","10⁵"],a:0},
+    {q:"Which is irrational?",c:["0.75","√4","π","¼"],a:2},
+    {q:"Solve the inequality: −3x > 12",c:["x > −4","x < −4","x > 4","x < 4"],a:1},
+    {q:"What is the probability of rolling a 5 on a fair die?",c:["1/5","1/6","5/6","1/3"],a:1},
+    {q:"Circumference of a circle with radius 7 (use π ≈ 3.14):",c:["21.98","43.96","153.86","22"],a:1},
+    {q:"What is 3.5 × 10⁻² in standard notation?",c:["350","3500","0.035","0.0035"],a:2},
+    {q:"Complementary angles add to:",c:["90°","180°","270°","360°"],a:0},
+    {q:"Translate: 'four less than twice a number x'",c:["4 − 2x","2x − 4","4x − 2","2(x − 4)"],a:1},
+    {q:"Which point is on the line y = 3x − 1?",c:["(0,1)","(1,2)","(2,5)","(3,7)"],a:1},
+    {q:"Median of: 4, 7, 2, 9, 5",c:["7","5","4","5.4"],a:1},
+    {q:"Simple interest: P=$500, r=4%, t=3 years",c:["$60","$120","$6","$600"],a:0},
+    {q:"Convert 0.625 to a fraction in simplest form:",c:["625/1000","5/8","6/10","5/9"],a:1},
+    {q:"Which is NOT a physical change?",c:["Melting ice","Cutting paper","Burning wood","Dissolving salt"],a:2},
+    {q:"Area of circle with diameter 10 (π ≈ 3.14):",c:["31.4","78.5","314","15.7"],a:1},
+    {q:"Solve: x/5 = 8",c:["x = 1.6","x = 13","x = 40","x = 3"],a:2},
+    {q:"What is 45 expressed as a decimal?",c:["0.8","0.75","0.45","0.6"],a:0},
+    {q:"A bag has 3 red, 5 blue, 2 green marbles. P(blue) = ?",c:["½","¼","3/10","5/10"],a:3},
+    {q:"Supplementary angles: one is 65°, other is:",c:["25°","115°","125°","295°"],a:1},
+    {q:"x⁰ = ? (x ≠ 0)",c:["0","x","1","undefined"],a:2},
+    {q:"A car travels 240 miles in 4 hours. Average speed:",c:["60 mph","80 mph","240 mph","1000 mph"],a:0},
+    {q:"What is the range of: 12, 8, 20, 5, 15?",c:["8","10","15","20"],a:2},
+    {q:"Simplify: −2(3x − 4)",c:["−6x − 8","−6x + 8","6x − 8","−6x + 4"],a:1},
+    {q:"Which shows a proportional relationship?",c:["y = 2x + 3","y = x²","y = 5x","y = 3/x"],a:2},
+    {q:"Solve: |x| = 9",c:["x = 9 only","x = −9 only","x = 9 or x = −9","No solution"],a:2},
+    {q:"Surface area of a cube with side 4:",c:["16","64","96","24"],a:2},
+    {q:"What is the LCM of 4 and 6?",c:["2","12","24","6"],a:1},
+    {q:"Which is a rational number?",c:["π","√7","0.333...","√5"],a:2},
+  ],
+  algebra:[
+    {q:"What is the slope of the line y = −3x + 7?",c:["7","−3","3","−7"],a:1},
+    {q:"Solve: 2x + 5 = 13",c:["x = 4","x = 9","x = 3","x = 18"],a:0},
+    {q:"Factor: x² + 7x + 12",c:["(x+3)(x+4)","(x+2)(x+6)","(x+1)(x+12)","(x+7)(x+1)"],a:0},
+    {q:"Which equation has NO solution (parallel lines)?",c:["y=2x+1 and y=2x+4","y=3x+1 and y=−3x+1","y=x+2 and y=2x+2","y=5x and y=5x"],a:0},
+    {q:"Quadratic formula: a=1, b=−5, c=6 → x = ?",c:["x = 2 or 3","x = 5 or 1","x = −2 or −3","x = 6 or 1"],a:0},
+    {q:"xᵃ ÷ xᵇ = ?",c:["xᵃ⁺ᵇ","xᵃ⁻ᵇ","xᵃᵇ","xᵃ/ᵇ"],a:1},
+    {q:"What does FOIL stand for?",c:["Factor, Organize, Invert, Last","First, Outer, Inner, Last","First, Order, Inverse, Line","Factor, Outer, Include, Last"],a:1},
+    {q:"Expand: (x+5)²",c:["x²+25","x²+10x+25","x²+5x+25","2x+10"],a:1},
+    {q:"The vertex of y = 2x² − 8x + 3 has x-coordinate:",c:["2","−2","4","−4"],a:0},
+    {q:"What is the y-intercept of 3x − 4y = 12?",c:["(0,3)","(0,−3)","(4,0)","(0,12)"],a:1},
+    {q:"Which is NOT a function?",c:["y = 3x+2","y = x²","x = 4 (vertical)","y = |x|"],a:2},
+    {q:"Simplify: (3x²)(4x³)",c:["12x⁵","12x⁶","7x⁵","12x"],a:0},
+    {q:"Factor completely: 6x² − 9x",c:["3x(2x−3)","6x(x−9)","3(2x²−3x)","x(6x−9)"],a:0},
+    {q:"Solve by substitution: y=x+2 and 2x+y=8",c:["x=2, y=4","x=3, y=5","x=1, y=3","x=6, y=8"],a:0},
+    {q:"(x+4)(x−4) = ?",c:["x²+16","x²−16","x²+8x−16","x²−8x+16"],a:1},
+    {q:"What is the discriminant of x²−6x+9?",c:["−27","0","9","18"],a:1},
+    {q:"Perpendicular slope to m = ⅔ is:",c:["⅔","−⅔","3/2","−3/2"],a:3},
+    {q:"Solve: x² = 49",c:["x=7","x=−7","x=±7","x=24.5"],a:2},
+    {q:"Which represents y in terms of x for 2x+3y=12?",c:["y=(12−2x)/3","y=2x+12","y=12−2x","y=3x+12"],a:0},
+    {q:"3.2 × 10⁴ × 2.5 × 10³ = ?",c:["8 × 10⁷","8 × 10¹²","5.7 × 10⁷","8 × 10⁶"],a:0},
+    {q:"What is the domain restriction for f(x) = 1/(x−3)?",c:["x ≠ 0","x ≠ 3","x ≠ −3","x ≥ 0"],a:1},
+    {q:"Solve: |2x−1| = 7",c:["x=4 or x=3","x=4 or x=−3","x=8 or x=6","x=4 only"],a:1},
+    {q:"What is the sum of the roots of x²−5x+6=0?",c:["5","−5","6","−6"],a:0},
+    {q:"Simplify: (2x³)⁴",c:["8x⁷","2x¹²","16x¹²","16x⁷"],a:2},
+    {q:"Which system has infinitely many solutions?",c:["y=x+1 and y=x−1","y=2x and 2y=4x","y=x and y=−x","x+y=5 and x+y=6"],a:1},
+    {q:"Solve: 3(x−2) = 2x+1",c:["x=7","x=5","x=−7","x=1"],a:0},
+    {q:"What is f(−2) for f(x) = x² − 3x + 1?",c:["11","−1","5","3"],a:0},
+    {q:"The product of two binomials (x+a)(x+b) = x²+(a+b)x+ab. For x²+9x+18, a×b =",c:["18","9","27","−18"],a:0},
+    {q:"Line through (0,3) and (2,7) has slope:",c:["2","4","1","3"],a:0},
+    {q:"Solve: x²+x−12=0 by factoring",c:["(x+4)(x−3)","(x−4)(x+3)","(x+6)(x−2)","(x+3)(x+4)"],a:0},
+    {q:"What type of correlation: as x increases, y decreases?",c:["Positive","Negative","No correlation","Perfect"],a:1},
+    {q:"Simplify: (x²y³)/(xy²)",c:["xy","x²y","xy⁵","x³y⁵"],a:0},
+    {q:"Which point satisfies y ≤ 2x − 1?",c:["(0,0)","(1,2)","(3,4)","(2,3)"],a:2},
+    {q:"Express 0.00045 in scientific notation:",c:["4.5 × 10⁻⁴","45 × 10⁻⁵","4.5 × 10⁴","0.45 × 10⁻³"],a:0},
+    {q:"Arithmetic sequence: 5, 8, 11, 14... 20th term?",c:["62","59","62","65"],a:0},
+    {q:"GCF of 12x³y² and 18x²y³:",c:["6x²y²","6xy","18x³y³","6x³y³"],a:0},
+    {q:"Solve: √(x+3) = 5",c:["x = 22","x = 28","x = 2","x = 47"],a:0},
+    {q:"Rate of change for the table (x:0,1,2 y:3,6,9):",c:["1","2","3","6"],a:2},
+    {q:"Factor: x² − 5x − 14",c:["(x−7)(x+2)","(x+7)(x−2)","(x−14)(x+1)","(x−2)(x−7)"],a:0},
+    {q:"Write point-slope for slope=−2 through (3,1):",c:["y−1=−2(x−3)","y+1=−2(x+3)","y=−2x+1","y−3=−2(x−1)"],a:0},
+  ],
+  science:[
+    {q:"Which subatomic particle has a negative charge?",c:["Proton","Neutron","Electron","Nucleus"],a:2},
+    {q:"Newton's Second Law is:",c:["F = ma","v = d/t","p = mv","E = mc²"],a:0},
+    {q:"What happens to the inequality when dividing by -2?",c:["Sign stays same","Sign flips","Sign disappears","Sign doubles"],a:1},
+    {q:"Which layer of Earth is liquid?",c:["Crust","Mantle","Inner core","Outer core"],a:3},
+    {q:"A chemical change is evidenced by:",c:["Change in shape","Gas produced + new substance","Change in size","Dissolving"],a:1},
+    {q:"Speed formula:",c:["v = ma","v = d/t","v = F/m","v = at"],a:1},
+    {q:"Heat transfer requiring NO medium:",c:["Conduction","Convection","Radiation","All require medium"],a:2},
+    {q:"The independent variable goes on which axis?",c:["Y-axis","X-axis","Z-axis","Neither"],a:1},
+    {q:"Atomic number equals the number of:",c:["Neutrons","Electrons","Protons","Nucleons"],a:2},
+    {q:"Which is a PHYSICAL change?",c:["Rusting iron","Burning wood","Melting ice","Cooking an egg"],a:2},
+    {q:"Weather occurs in which atmospheric layer?",c:["Stratosphere","Thermosphere","Troposphere","Mesosphere"],a:2},
+    {q:"Kinetic energy formula:",c:["KE = mgh","KE = ½mv²","KE = Fd","KE = mv"],a:1},
+    {q:"What causes earthquakes?",c:["Wind erosion","Tectonic plate movement","Ocean currents","Volcanic gases"],a:1},
+    {q:"Isotopes differ in number of:",c:["Protons","Electrons","Neutrons","Quarks"],a:2},
+    {q:"Electromagnetic waves travel at:",c:["340 m/s","1500 m/s","3 × 10⁸ m/s","9.8 m/s²"],a:2},
+    {q:"Highest frequency on EM spectrum:",c:["Radio","Visible light","X-ray","Gamma ray"],a:3},
+    {q:"P-waves vs S-waves — what is true?",c:["S-waves faster","P-waves can travel through liquids; S-waves cannot","Both same speed","P-waves cannot travel through solid"],a:1},
+    {q:"At the TOP of a roller coaster, energy is mostly:",c:["Kinetic","Sound","Potential","Electrical"],a:2},
+    {q:"Law of Conservation of Energy states:",c:["Energy can be created from nothing","Energy can be destroyed in reactions","Energy cannot be created or destroyed, only converted","Energy increases in every reaction"],a:2},
+    {q:"The ozone layer is in which atmospheric layer?",c:["Troposphere","Stratosphere","Mesosphere","Thermosphere"],a:1},
+    {q:"Density formula:",c:["D = m + V","D = m × V","D = m/V","D = V/m"],a:2},
+    {q:"Which rock type forms from cooled magma?",c:["Sedimentary","Metamorphic","Igneous","All three"],a:2},
+    {q:"Sound travels FASTEST through:",c:["Air","Water","Vacuum","Solids"],a:3},
+    {q:"What is the control group in an experiment?",c:["Receives the treatment","Changed variable","No treatment — for comparison","Dependent variable"],a:2},
+    {q:"Momentum formula:",c:["p = Ft","p = ma","p = mv","p = ½mv²"],a:2},
+    {q:"Divergent plate boundaries cause:",c:["Mountains and trenches","Earthquakes only","Rift valleys and mid-ocean ridges","Subduction zones"],a:2},
+    {q:"Which front brings thunderstorms and rapid weather change?",c:["Warm front","Cold front","Stationary front","Occluded front"],a:1},
+    {q:"Convection heat transfer occurs in:",c:["Solids only","Fluids (liquids and gases)","Vacuum","Any medium"],a:1},
+    {q:"The atomic mass on the periodic table represents:",c:["Number of protons","Number of neutrons","Weighted average mass of all isotopes","Number of electrons"],a:2},
+    {q:"Which type of wave is sound?",c:["Transverse","Electromagnetic","Longitudinal","Surface"],a:2},
+    {q:"An object's weight on Earth is calculated by:",c:["W = m/g","W = mg","W = m + g","W = m²"],a:1},
+    {q:"What is the pH of a neutral solution?",c:["0","7","10","14"],a:1},
+    {q:"Acceleration is calculated as:",c:["a = Fv","a = d/t","a = Δv/t","a = mv"],a:2},
+    {q:"Which type of rock contains fossils?",c:["Igneous","Metamorphic","Sedimentary","Volcanic"],a:2},
+    {q:"What phase change goes directly from solid to gas?",c:["Evaporation","Condensation","Sublimation","Deposition"],a:2},
+    {q:"Group 18 elements (noble gases) are unreactive because:",c:["They are metals","Their outer electron shell is full","They have no protons","They are too small"],a:1},
+    {q:"The greenhouse effect is caused primarily by:",c:["Ozone depletion","CO₂ and other gases trapping heat","Increased solar output","Earth's magnetic field"],a:1},
+    {q:"A cation has a _____ charge because it:",c:["Negative; gained electrons","Positive; gained electrons","Negative; lost electrons","Positive; lost electrons"],a:3},
+    {q:"Which bounces S-waves but not P-waves, proving Earth's outer core is liquid?",c:["The crust","The mantle","The shadow zone","The epicenter"],a:2},
+    {q:"Amplitude of a wave is related to:",c:["Speed","Wavelength","Frequency","Energy"],a:3},
+  ],
+  biology:[
+    {q:"What organelle performs photosynthesis?",c:["Nucleus","Ribosome","Chloroplast","Mitochondria"],a:2},
+    {q:"What is the 'powerhouse of the cell'?",c:["Nucleus","Chloroplast","Mitochondria","Vacuole"],a:2},
+    {q:"Which is found ONLY in plant cells?",c:["Nucleus","Ribosome","Cell wall","Mitochondria"],a:2},
+    {q:"Mitosis produces:",c:["4 haploid cells","2 identical diploid cells","4 unique cells","1 cell"],a:1},
+    {q:"In DNA, adenine pairs with:",c:["Guanine","Cytosine","Uracil","Thymine"],a:3},
+    {q:"What is the overall equation for photosynthesis?",c:["O₂ + glucose → CO₂ + H₂O + ATP","6CO₂ + 6H₂O + light → C₆H₁₂O₆ + 6O₂","6O₂ + 6H₂O → C₆H₁₂O₆ + 6CO₂","Light → glucose + CO₂"],a:1},
+    {q:"Natural selection was proposed by:",c:["Mendel","Watson","Darwin","Hooke"],a:2},
+    {q:"The 10% rule means:",c:["10% of cells divide each day","10% of energy passes to each trophic level","10% of organisms survive","10% of DNA codes for proteins"],a:1},
+    {q:"A dominant allele is shown by:",c:["Lowercase letter","Uppercase letter","Number","Strikethrough"],a:1},
+    {q:"Cellular respiration occurs mainly in the:",c:["Chloroplast","Nucleus","Mitochondria","Ribosome"],a:2},
+    {q:"Osmosis is the movement of:",c:["Glucose molecules","Water molecules","Sodium ions","Proteins"],a:1},
+    {q:"What is a codon?",c:["A unit of DNA","A sequence of 3 mRNA bases coding for one amino acid","A chromosome segment","A type of mutation"],a:1},
+    {q:"Meiosis produces cells that are:",c:["Diploid and identical","Haploid and identical","Diploid and unique","Haploid and unique"],a:3},
+    {q:"Which molecule carries amino acids to the ribosome?",c:["mRNA","DNA","tRNA","rRNA"],a:2},
+    {q:"Mutualism means:",c:["One benefits, one harmed","Both species benefit","One benefits, one neutral","Both harmed"],a:1},
+    {q:"In a hypotonic solution, an animal cell will:",c:["Shrink","Burst (lyse)","Stay same","Divide"],a:1},
+    {q:"Crossing over occurs during:",c:["Mitosis","Meiosis I prophase","Meiosis II","Interphase"],a:1},
+    {q:"Which human system produces antibodies?",c:["Nervous","Endocrine","Immune","Circulatory"],a:2},
+    {q:"Homologous structures are evidence of:",c:["Convergent evolution","Common ancestry","Random mutation","Environmental pressure"],a:1},
+    {q:"What is a vestigial structure?",c:["A new structure evolving","A structure used differently","A reduced/functionless structure from an ancestor","A structure gained by mutation"],a:2},
+    {q:"The Golgi apparatus is best described as the cell's:",c:["Power plant","Post office/packaging center","Brain","Digestive system"],a:1},
+    {q:"An ion channel assists which type of transport?",c:["Active transport","Facilitated diffusion","Endocytosis","Exocytosis"],a:1},
+    {q:"Frameshift mutation results from:",c:["One base substituted","Insertion or deletion of bases","UV radiation","Temperature change"],a:1},
+    {q:"In the Punnett square Tt × Tt, what fraction of offspring are homozygous dominant?",c:["¼","½","¾","All"],a:0},
+    {q:"Carrying capacity is represented by which letter?",c:["N","r","K","P"],a:2},
+    {q:"Which process uses oxygen?",c:["Fermentation","Glycolysis","Aerobic respiration","Photosystem I only"],a:2},
+    {q:"Type AB blood is an example of:",c:["Incomplete dominance","Codominance","Multiple alleles","Polygenic inheritance"],a:1},
+    {q:"What phase of mitosis do chromosomes line up at the equator?",c:["Prophase","Metaphase","Anaphase","Telophase"],a:1},
+    {q:"How many chromosomes are in a human gamete?",c:["46","92","23","24"],a:2},
+    {q:"Bacteria are classified as:",c:["Eukaryotic","Prokaryotic","Fungal","Protist"],a:1},
+    {q:"Which enzyme unwinds DNA during replication?",c:["DNA polymerase","Ligase","Helicase","RNA polymerase"],a:2},
+    {q:"Where does transcription occur in eukaryotes?",c:["Ribosome","Cytoplasm","Nucleus","Mitochondria"],a:2},
+    {q:"Which trophic level has the MOST available energy?",c:["Tertiary consumers","Secondary consumers","Primary consumers","Producers"],a:3},
+    {q:"A woman who is a carrier of a sex-linked recessive trait has what genotype?",c:["X^N X^N","X^N X^n","X^n X^n","X^N Y"],a:1},
+    {q:"Which part of a chloroplast is where the Calvin cycle occurs?",c:["Thylakoid","Grana","Stroma","Outer membrane"],a:2},
+    {q:"Lactic acid fermentation produces how many ATP?",c:["2 ATP","36 ATP","38 ATP","0 ATP"],a:0},
+    {q:"Cancer is caused by:",c:["Virus only","Radiation only","Failure of cell cycle checkpoints → uncontrolled division","Normal mitosis going too fast"],a:2},
+    {q:"Logistic growth results in a(n):",c:["J-shaped curve","S-shaped curve","Linear graph","Exponential decline"],a:1},
+    {q:"Which blood type is the universal donor?",c:["AB positive","A negative","O negative","B positive"],a:2},
+    {q:"Transpiration is water released by:",c:["Clouds","Animals breathing","Plants through their leaves","Ocean waves"],a:2},
+  ]
+};
+
+// ── BUILD FLASHCARDS ──
+function buildFC(id,data){
+  const el=document.getElementById(id);
+  if(!el||el.dataset.built)return;
+  el.dataset.built='1';
+  data.forEach(d=>{
+    const fc=document.createElement('div');
+    fc.className='fc';
+    fc.innerHTML=`<div class="fc-inner"><div class="fc-front"><div class="fc-lbl">Q</div><div class="fc-txt">${d.q}</div></div><div class="fc-back"><div class="fc-lbl">A</div><div class="fc-txt">${d.a}</div></div></div>`;
+    fc.addEventListener('click',()=>fc.classList.toggle('flipped'));
+    el.appendChild(fc);
+  });
+}
+
+// ── BUILD QUIZ ──
+function buildQuiz(cid,qs){
+  const el=document.getElementById(cid);
+  if(!el||el.dataset.built)return;
+  el.dataset.built='1';
+  const L=['A','B','C','D'];
+  let ans=0,cor=0;
+  const wrap=document.createElement('div');
+  wrap.className='quiz-wrap';
+  qs.forEach((qd,qi)=>{
+    const d=document.createElement('div');
+    d.className='qitem';
+    d.innerHTML=`<div class="qnum">Q ${qi+1} / ${qs.length}</div><div class="qtext">${qd.q}</div><ul class="qchoices">${qd.c.map((ch,ci)=>`<li data-i="${ci}"><span class="cletter">${L[ci]}</span><span>${ch}</span></li>`).join('')}</ul>`;
+    wrap.appendChild(d);
+    d.querySelectorAll('li').forEach(li=>{
+      li.addEventListener('click',()=>{
+        if(li.classList.contains('revealed'))return;
+        const ch=parseInt(li.dataset.i);
+        d.querySelectorAll('li').forEach(l=>{
+          l.classList.add('revealed');
+          if(parseInt(l.dataset.i)===qd.a)l.classList.add('correct');
+          else if(l===li)l.classList.add('wrong');
+        });
+        ans++;if(ch===qd.a)cor++;
+        if(ans===qs.length){sb.style.display='block';sn.textContent=cor;}
+      });
+    });
+  });
+  el.appendChild(wrap);
+  const sb=document.createElement('div');sb.className='score-box';
+  const sn=document.createElement('span');sn.className='score-n';
+  sb.appendChild(sn);
+  const sl=document.createElement('span');sl.className='score-l';sl.textContent=`/ ${qs.length} CORRECT`;
+  sb.appendChild(sl);
+  sb.innerHTML+=`<br>`;
+  const btn=document.createElement('button');btn.className='btn';btn.textContent='RETRY TEST';
+  btn.onclick=()=>{el.innerHTML='';delete el.dataset.built;const k=cid.replace('quiz-','');buildQuiz(cid,quizData[k]);};
+  sb.appendChild(btn);
+  el.appendChild(sb);
+}
+
+function buildAll(){
+  ['prealgebra','algebra','science','biology'].forEach(k=>{
+    buildFC('fc-'+k,fcData[k]);
+    buildQuiz('quiz-'+k,quizData[k]);
+  });
+}
+
+setTimeout(buildAll,600);
+</script>
+</body>
+</html>
