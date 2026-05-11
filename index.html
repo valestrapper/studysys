@@ -1,0 +1,3400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>STUDY.SYS — valestrapper</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;1,300;1,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #000;
+    --fg: #fff;
+    --dim: #888;
+    --faint: #222;
+    --border: #333;
+    --accent: #fff;
+    --glow: rgba(255,255,255,0.06);
+    --dot-size: 2px;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: 'JetBrains Mono', monospace;
+    min-height: 100vh;
+    overflow-x: hidden;
+    cursor: crosshair;
+  }
+
+  /* ── CANVAS DOTS BG ── */
+  #dot-canvas {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    opacity: 0.55;
+  }
+
+  /* ── SCANLINE OVERLAY ── */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(255,255,255,0.012) 2px,
+      rgba(255,255,255,0.012) 4px
+    );
+    pointer-events: none;
+    z-index: 9999;
+    animation: scanroll 12s linear infinite;
+  }
+
+  @keyframes scanroll {
+    0% { background-position: 0 0; }
+    100% { background-position: 0 100px; }
+  }
+
+  /* ── NOISE TEXTURE ── */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 1;
+    opacity: 0.4;
+  }
+
+  /* ── LAYOUT ── */
+  #app {
+    position: relative;
+    z-index: 10;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 0 24px 80px;
+  }
+
+  /* ── HEADER ── */
+  header {
+    padding: 48px 0 32px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 40px;
+    position: relative;
+  }
+
+  .sys-tag {
+    font-size: 10px;
+    letter-spacing: 0.3em;
+    color: var(--dim);
+    text-transform: uppercase;
+    margin-bottom: 12px;
+    animation: fadeIn 1s ease forwards;
+  }
+
+  .sys-tag span {
+    display: inline-block;
+    animation: blink 1.4s step-end infinite;
+  }
+
+  @keyframes blink { 50% { opacity: 0; } }
+
+  h1.logo {
+    font-size: clamp(28px, 6vw, 52px);
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1;
+    position: relative;
+    display: inline-block;
+  }
+
+  h1.logo::after {
+    content: '_';
+    animation: blink 1s step-end infinite;
+    color: var(--fg);
+  }
+
+  .hologram-text {
+    background: linear-gradient(90deg, #fff 0%, #aaa 40%, #fff 60%, #666 100%);
+    background-size: 200% auto;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: shimmer 3s linear infinite;
+  }
+
+  @keyframes shimmer {
+    0% { background-position: 0% center; }
+    100% { background-position: 200% center; }
+  }
+
+  .header-meta {
+    margin-top: 14px;
+    font-size: 11px;
+    color: var(--dim);
+    letter-spacing: 0.15em;
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+  }
+
+  .status-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: #fff;
+    display: inline-block;
+    margin-right: 6px;
+    animation: pulse-dot 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse-dot {
+    0%,100% { opacity: 1; box-shadow: 0 0 0 0 rgba(255,255,255,0.4); }
+    50% { opacity: 0.6; box-shadow: 0 0 0 4px rgba(255,255,255,0); }
+  }
+
+  /* ── CLASS SELECTOR ── */
+  .selector-section {
+    margin-bottom: 40px;
+  }
+
+  .section-label {
+    font-size: 10px;
+    letter-spacing: 0.3em;
+    color: var(--dim);
+    text-transform: uppercase;
+    margin-bottom: 14px;
+  }
+
+  .class-dropdown-wrapper {
+    position: relative;
+    display: inline-block;
+    width: 100%;
+    max-width: 420px;
+  }
+
+  .class-dropdown {
+    width: 100%;
+    background: #000;
+    color: #fff;
+    border: 1px solid var(--border);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    padding: 14px 20px;
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    letter-spacing: 0.08em;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    outline: none;
+  }
+
+  .class-dropdown:hover, .class-dropdown:focus {
+    border-color: #fff;
+    box-shadow: 0 0 0 1px #fff, 0 0 20px rgba(255,255,255,0.07);
+  }
+
+  .dropdown-arrow {
+    position: absolute;
+    right: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    pointer-events: none;
+    font-size: 10px;
+    color: var(--dim);
+    letter-spacing: 0;
+    transition: transform 0.3s;
+  }
+
+  .class-tabs {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 16px;
+  }
+
+  .class-tab {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--dim);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    padding: 8px 16px;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .class-tab::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--fg);
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 0.2s;
+    z-index: -1;
+  }
+
+  .class-tab:hover { color: var(--fg); border-color: var(--fg); }
+  .class-tab:hover::before { transform: scaleX(0.04); }
+
+  .class-tab.active {
+    background: #fff;
+    color: #000;
+    border-color: #fff;
+  }
+
+  .class-tab.active::before { transform: scaleX(1); }
+
+  /* ── CONTENT PANELS ── */
+  .panel {
+    display: none;
+    animation: panelIn 0.4s ease forwards;
+  }
+
+  .panel.active { display: block; }
+
+  @keyframes panelIn {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── STUDY CARD ── */
+  .study-card {
+    border: 1px solid var(--border);
+    margin-bottom: 20px;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+
+  .study-card:hover {
+    border-color: rgba(255,255,255,0.4);
+    box-shadow: 0 0 30px rgba(255,255,255,0.04);
+  }
+
+  .card-header {
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.2s;
+  }
+
+  .card-header:hover { background: var(--glow); }
+
+  .card-title {
+    font-size: 11px;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .card-num {
+    color: var(--dim);
+    font-weight: 400;
+    font-size: 10px;
+  }
+
+  .card-toggle {
+    font-size: 10px;
+    color: var(--dim);
+    letter-spacing: 0.1em;
+    transition: transform 0.3s;
+  }
+
+  .card-body {
+    padding: 24px 20px;
+    display: none;
+  }
+
+  .card-body.open { display: block; }
+
+  .card-header.open .card-toggle { transform: rotate(90deg); }
+
+  /* ── CONTENT ELEMENTS ── */
+  .topic-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+
+  .topic-block {
+    border: 1px solid var(--border);
+    padding: 16px;
+    position: relative;
+  }
+
+  .topic-block::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0;
+    width: 2px;
+    height: 100%;
+    background: #fff;
+    opacity: 0.3;
+  }
+
+  .topic-block h4 {
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--dim);
+    margin-bottom: 10px;
+    font-weight: 500;
+  }
+
+  .topic-block p, .topic-block li {
+    font-size: 12px;
+    line-height: 1.7;
+    color: #ccc;
+  }
+
+  .topic-block ul { list-style: none; padding: 0; }
+
+  .topic-block ul li::before {
+    content: '→ ';
+    color: var(--dim);
+    font-size: 10px;
+  }
+
+  .formula-box {
+    background: var(--faint);
+    border: 1px solid var(--border);
+    padding: 12px 16px;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    margin: 8px 0;
+    display: inline-block;
+    position: relative;
+  }
+
+  .formula-box::before {
+    content: 'FORMULA';
+    position: absolute;
+    top: -8px;
+    left: 10px;
+    font-size: 8px;
+    letter-spacing: 0.3em;
+    background: #000;
+    padding: 0 4px;
+    color: var(--dim);
+  }
+
+  .key-fact {
+    border-left: 2px solid #fff;
+    padding: 10px 14px;
+    margin: 8px 0;
+    background: rgba(255,255,255,0.03);
+    font-size: 12px;
+    line-height: 1.6;
+    color: #ddd;
+  }
+
+  .key-fact strong { color: #fff; font-weight: 600; }
+
+  .vocab-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11px;
+    margin: 12px 0;
+  }
+
+  .vocab-table th {
+    text-align: left;
+    padding: 8px 12px;
+    font-size: 9px;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: var(--dim);
+    border-bottom: 1px solid var(--border);
+    font-weight: 500;
+  }
+
+  .vocab-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    color: #ccc;
+    vertical-align: top;
+    line-height: 1.5;
+  }
+
+  .vocab-table tr:hover td { background: var(--glow); color: #fff; }
+
+  .tag {
+    display: inline-block;
+    background: #fff;
+    color: #000;
+    font-size: 9px;
+    letter-spacing: 0.15em;
+    padding: 2px 8px;
+    text-transform: uppercase;
+    font-weight: 700;
+    margin: 2px;
+  }
+
+  .tag.dim {
+    background: transparent;
+    color: var(--dim);
+    border: 1px solid var(--border);
+  }
+
+  /* ── FLASHCARDS ── */
+  .flashcard-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 12px;
+  }
+
+  .flashcard {
+    border: 1px solid var(--border);
+    padding: 0;
+    cursor: pointer;
+    perspective: 800px;
+    position: relative;
+    height: 140px;
+  }
+
+  .flashcard-inner {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    transition: transform 0.5s cubic-bezier(0.4,0,0.2,1);
+    transform-style: preserve-3d;
+  }
+
+  .flashcard.flipped .flashcard-inner { transform: rotateY(180deg); }
+
+  .fc-front, .fc-back {
+    position: absolute;
+    inset: 0;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 18px 16px;
+    overflow: hidden;
+  }
+
+  .fc-back {
+    transform: rotateY(180deg);
+    background: rgba(255,255,255,0.03);
+  }
+
+  .fc-label {
+    font-size: 8px;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: var(--dim);
+    margin-bottom: 8px;
+  }
+
+  .fc-text {
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--fg);
+  }
+
+  .fc-back .fc-text { color: #aaa; }
+
+  /* ── PRACTICE TEST ── */
+  .quiz-q {
+    margin-bottom: 20px;
+    padding: 20px;
+    border: 1px solid var(--border);
+    transition: border-color 0.2s;
+  }
+
+  .quiz-q:hover { border-color: rgba(255,255,255,0.3); }
+
+  .q-num {
+    font-size: 9px;
+    letter-spacing: 0.3em;
+    color: var(--dim);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+
+  .q-text {
+    font-size: 13px;
+    line-height: 1.5;
+    margin-bottom: 14px;
+    color: #eee;
+  }
+
+  .q-choices { list-style: none; padding: 0; }
+
+  .q-choices li {
+    padding: 8px 12px;
+    margin-bottom: 6px;
+    border: 1px solid var(--border);
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #bbb;
+  }
+
+  .q-choices li:hover { border-color: #fff; color: #fff; background: var(--glow); }
+
+  .q-choices li.correct { border-color: #fff; background: rgba(255,255,255,0.1); color: #fff; }
+  .q-choices li.wrong { border-color: #555; opacity: 0.4; }
+  .q-choices li.revealed { pointer-events: none; }
+
+  .choice-letter {
+    font-size: 9px;
+    letter-spacing: 0.15em;
+    color: var(--dim);
+    min-width: 14px;
+  }
+
+  .q-choices li.correct .choice-letter::after { content: ' ✓'; color: #fff; }
+
+  .quiz-score {
+    border: 1px solid var(--border);
+    padding: 20px;
+    text-align: center;
+    margin-top: 20px;
+    display: none;
+  }
+
+  .score-num {
+    font-size: 40px;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    display: block;
+    margin-bottom: 4px;
+  }
+
+  .score-label {
+    font-size: 10px;
+    letter-spacing: 0.3em;
+    color: var(--dim);
+    text-transform: uppercase;
+  }
+
+  .btn {
+    background: #fff;
+    color: #000;
+    border: none;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    padding: 10px 24px;
+    cursor: pointer;
+    font-weight: 700;
+    margin-top: 16px;
+    transition: opacity 0.2s;
+  }
+
+  .btn:hover { opacity: 0.85; }
+
+  .btn.outline {
+    background: transparent;
+    color: #fff;
+    border: 1px solid var(--border);
+  }
+
+  .btn.outline:hover { border-color: #fff; }
+
+  /* ── TIMELINE ── */
+  .timeline {
+    position: relative;
+    padding-left: 32px;
+  }
+
+  .timeline::before {
+    content: '';
+    position: absolute;
+    left: 8px;
+    top: 0; bottom: 0;
+    width: 1px;
+    background: var(--border);
+  }
+
+  .tl-item {
+    position: relative;
+    margin-bottom: 20px;
+  }
+
+  .tl-item::before {
+    content: '';
+    position: absolute;
+    left: -28px;
+    top: 6px;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 0 8px rgba(255,255,255,0.5);
+  }
+
+  .tl-title {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    margin-bottom: 4px;
+  }
+
+  .tl-desc {
+    font-size: 11px;
+    color: #888;
+    line-height: 1.5;
+  }
+
+  /* ── SECTION DIVIDER ── */
+  .divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 24px 0;
+    position: relative;
+  }
+
+  .divider::after {
+    content: attr(data-label);
+    position: absolute;
+    top: -9px;
+    left: 0;
+    background: #000;
+    padding-right: 12px;
+    font-size: 9px;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: var(--dim);
+  }
+
+  /* ── PROGRESS BAR ── */
+  .progress-bar {
+    height: 2px;
+    background: var(--border);
+    margin: 6px 0 16px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    height: 100%;
+    background: #fff;
+    animation: fillAnim 1.5s ease forwards;
+    animation-delay: 0.3s;
+    width: 0%;
+  }
+
+  @keyframes fillAnim {
+    to { width: var(--fill); }
+  }
+
+  /* ── LOADING/BOOT SCREEN ── */
+  #boot {
+    position: fixed;
+    inset: 0;
+    background: #000;
+    z-index: 10000;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 48px;
+    font-family: 'JetBrains Mono', monospace;
+    transition: opacity 0.6s ease;
+  }
+
+  #boot.out { opacity: 0; pointer-events: none; }
+
+  .boot-line {
+    font-size: 12px;
+    color: var(--fg);
+    letter-spacing: 0.05em;
+    opacity: 0;
+    transform: translateY(4px);
+    transition: opacity 0.2s, transform 0.2s;
+    line-height: 2;
+  }
+
+  .boot-line.show { opacity: 1; transform: none; }
+  .boot-line.dim { color: var(--dim); }
+
+  /* ── DOTS LOADER ── */
+  .dot-loader {
+    display: inline-flex;
+    gap: 4px;
+    margin-left: 8px;
+    vertical-align: middle;
+  }
+
+  .dot-loader span {
+    width: 4px; height: 4px;
+    border-radius: 50%;
+    background: #fff;
+    animation: dotBounce 0.9s ease-in-out infinite;
+  }
+
+  .dot-loader span:nth-child(2) { animation-delay: 0.15s; }
+  .dot-loader span:nth-child(3) { animation-delay: 0.3s; }
+
+  @keyframes dotBounce {
+    0%,100% { opacity: 0.2; transform: translateY(0); }
+    50% { opacity: 1; transform: translateY(-4px); }
+  }
+
+  /* ── ANIMATIONS ── */
+  @keyframes fadeIn {
+    from { opacity: 0; } to { opacity: 1; }
+  }
+
+  .fade-up {
+    opacity: 0;
+    transform: translateY(16px);
+    animation: fadeUp 0.5s ease forwards;
+  }
+
+  @keyframes fadeUp {
+    to { opacity: 1; transform: none; }
+  }
+
+  /* stagger delays */
+  .d1 { animation-delay: 0.05s; }
+  .d2 { animation-delay: 0.1s; }
+  .d3 { animation-delay: 0.15s; }
+  .d4 { animation-delay: 0.2s; }
+  .d5 { animation-delay: 0.25s; }
+
+  /* ── HOW TO SOLVE ── */
+  .solve-section { margin-bottom: 28px; }
+
+  .solve-title {
+    font-size: 9px;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: var(--dim);
+    margin-bottom: 14px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .solve-example {
+    background: var(--faint);
+    border: 1px solid var(--border);
+    border-left: 3px solid #fff;
+    padding: 18px 20px;
+    margin-bottom: 20px;
+  }
+
+  .solve-example-label {
+    font-size: 8px;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: var(--dim);
+    margin-bottom: 10px;
+  }
+
+  .solve-problem {
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    margin-bottom: 16px;
+    color: #fff;
+    border: 1px dashed #333;
+    padding: 8px 12px;
+    display: inline-block;
+  }
+
+  .solve-steps { counter-reset: step; list-style: none; padding: 0; }
+
+  .solve-steps li {
+    counter-increment: step;
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+    margin-bottom: 14px;
+    font-size: 12px;
+    line-height: 1.7;
+    color: #ccc;
+  }
+
+  .solve-steps li::before {
+    content: counter(step);
+    min-width: 22px;
+    height: 22px;
+    background: #fff;
+    color: #000;
+    font-size: 9px;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  .math {
+    font-size: 13px;
+    font-weight: 600;
+    color: #fff;
+    background: rgba(255,255,255,0.08);
+    padding: 1px 8px;
+    display: inline-block;
+    margin: 2px 0;
+  }
+
+  .step-note {
+    font-size: 10px;
+    color: var(--dim);
+    display: block;
+    margin-top: 3px;
+    letter-spacing: 0.04em;
+  }
+
+  .solve-answer {
+    margin-top: 14px;
+    padding: 10px 14px;
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.25);
+    font-size: 14px;
+    font-weight: 700;
+    color: #fff;
+    display: inline-block;
+    letter-spacing: 0.05em;
+  }
+
+  .solve-answer::before { content: '∴ '; color: var(--dim); }
+
+  .memory-trick {
+    border: 1px solid #444;
+    padding: 12px 16px;
+    margin: 12px 0 18px;
+    background: rgba(255,255,255,0.02);
+    font-size: 11px;
+    line-height: 1.6;
+    color: #bbb;
+    position: relative;
+  }
+
+  .memory-trick::before {
+    content: '⚡ REMEMBER';
+    position: absolute;
+    top: -8px; left: 10px;
+    font-size: 8px;
+    letter-spacing: 0.25em;
+    background: #000;
+    padding: 0 6px;
+    color: #fff;
+    font-weight: 700;
+  }
+
+  .formula-big {
+    font-size: 17px;
+    font-weight: 700;
+    text-align: center;
+    padding: 14px 20px;
+    border: 1px solid #555;
+    background: var(--faint);
+    margin: 12px 0;
+    color: #fff;
+  }
+
+  .solve-cols {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+
+  @media (max-width: 680px) { .solve-cols { grid-template-columns: 1fr; } }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 600px) {
+    .topic-grid { grid-template-columns: 1fr; }
+    .flashcard-grid { grid-template-columns: 1fr 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Boot screen -->
+<div id="boot">
+  <div class="boot-line" id="b0">STUDY.SYS v2.0 — 8TH GRADE TERMINAL</div>
+  <div class="boot-line dim" id="b1">» loading knowledge base...</div>
+  <div class="boot-line dim" id="b2">» PRE-ALGEBRA ............. OK</div>
+  <div class="boot-line dim" id="b3">» ALGEBRA ................. OK</div>
+  <div class="boot-line dim" id="b4">» SCIENCE ................. OK</div>
+  <div class="boot-line dim" id="b5">» BIOLOGY ................. OK</div>
+  <div class="boot-line" id="b6">SYSTEM READY <span class="dot-loader"><span></span><span></span><span></span></span></div>
+</div>
+
+<!-- Dot canvas background -->
+<canvas id="dot-canvas"></canvas>
+
+<div id="app">
+  <!-- HEADER -->
+  <header class="fade-up">
+    <div class="sys-tag">valestrapper.github.io/study // <span>◼</span> LIVE</div>
+    <h1 class="logo"><span class="hologram-text">STUDY.SYS</span></h1>
+    <div class="header-meta">
+      <span><span class="status-dot"></span>8TH GRADE</span>
+      <span>// 4 CLASSES LOADED</span>
+      <span>// GET A 5</span>
+    </div>
+  </header>
+
+  <!-- CLASS SELECTOR -->
+  <div class="selector-section fade-up d1">
+    <div class="section-label">// SELECT CLASS</div>
+    <div class="class-tabs">
+      <button class="class-tab active" data-panel="prealgebra">Pre-Algebra</button>
+      <button class="class-tab" data-panel="algebra">Algebra</button>
+      <button class="class-tab" data-panel="science">Science</button>
+      <button class="class-tab" data-panel="biology">Biology</button>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════
+       PRE-ALGEBRA PANEL
+  ═══════════════════════════════════════ -->
+  <div class="panel active" id="panel-prealgebra">
+
+    <!-- Unit 1: Number Systems -->
+    <div class="study-card fade-up d2">
+      <div class="card-header open" onclick="toggleCard(this)">
+        <span class="card-title"><span class="card-num">01</span> NUMBER SYSTEMS & OPERATIONS</span>
+        <span class="card-toggle">▶</span>
+      </div>
+      <div class="card-body open">
+        <div class="topic-grid">
+          <div class="topic-block">
+            <h4>Real Number Types</h4>
+            <ul>
+              <li>Natural: 1, 2, 3... (counting numbers)</li>
+              <li>Whole: 0, 1, 2, 3...</li>
+              <li>Integers: ...-2,-1,0,1,2...</li>
+              <li>Rational: any a/b form (b≠0)</li>
+              <li>Irrational: non-repeating decimals (π, √2)</li>
+            </ul>
+          </div>
+          <div class="topic-block">
+            <h4>Integer Operations Rules</h4>
+            <ul>
+              <li>Pos × Pos = Positive</li>
+              <li>Neg × Neg = Positive</li>
+              <li>Pos × Neg = Negative</li>
+              <li>Adding same signs → add, keep sign</li>
+              <li>Adding diff signs → subtract, keep bigger sign</li>
+            </ul>
+          </div>
+          <div class="topic-block">
+            <h4>Order of Operations (PEMDAS)</h4>
+            <ul>
+              <li><strong>P</strong>arentheses first</li>
+              <li><strong>E</strong>xponents</li>
+              <li><strong>M</strong>ultiply / <strong>D</strong>ivide (L→R)</li>
+              <li><strong>A</strong>dd / <strong>S</strong>ubtract (L→R)</li>
+              <li>Never skip steps</li>
+            </ul>
+          </div>
+          <div class="topic-block">
+            <h4>Absolute Value</h4>
+            <ul>
+              <li>|x| = distance from zero</li>
+              <li>Always ≥ 0</li>
+              <li>|-5| = 5 and |5| = 5</li>
+              <li>|-a| = |a|</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Unit 2: Fractions & Decimals -->
+    <div class="study-card fade-up d3">
+      <div class="card-header" onclick="toggleCard(this)">
+        <span class="card-title"><span class="card-num">02</span> FRACTIONS, DECIMALS & PERCENTS</span>
+        <span class="card-toggle">▶</span>
+      </div>
+      <div class="card-body">
+        <div class="topic-grid">
+          <div class="topic-block">
+            <h4>Fraction Operations</h4>
+            <ul>
+              <li>Add/Sub: need common denominator (LCD)</li>
+              <li>Multiply: multiply tops × tops, bottoms × bottoms</li>
+              <li>Divide: keep, change, flip (KCF)</li>
+              <li>Mixed → improper: (whole × denom + num)/denom</li>
+            </ul>
+          </div>
+          <div class="topic-block">
+            <h4>Percent Conversions</h4>
+            <ul>
+              <li>% → decimal: divide by 100 (move . left 2)</li>
+              <li>Decimal → %: multiply by 100 (move . right 2)</li>
+              <li>Fraction → %: divide then × 100</li>
+              <li>% of number: convert then multiply</li>
+            </ul>
+          </div>
+          <div class="topic-block">
+            <h4>Ratio & Proportion</h4>
+            <ul>
+              <li>Ratio: comparison of two quantities</li>
+              <li>Proportion: two equal ratios a/b = c/d</li>
+              <li>Cross multiply to solve: ad = bc</li>
+              <li>Unit rate: ratio with denominator = 1</li>
+            </ul>
+          </div>
+        </div>
+        <hr class="divider" data-label="KEY FORMULAS">
+        <div class="key-fact"><strong>% change</strong> = (new - old) / old × 100</div>
+        <div class="key-fact"><strong>Simple Interest</strong> = P × r × t (principal × rate × time)</div>
+        <div class="key-fact"><strong>Sale price</strong> = original × (1 - discount rate)</div>
+      </div>
+    </div>
+
+    <!-- Unit 3: Variables & Expressions -->
+    <div class="study-card fade-up d3">
+      <div class="card-header" onclick="toggleCard(this)">
+        <span class="card-title"><span class="card-num">03</span> VARIABLES, EXPRESSIONS & EQUATIONS</span>
+        <span class="card-toggle">▶</span>
+      </div>
+      <div class="card-body">
+        <div class="topic-grid">
+          <div class="topic-block">
+            <h4>Algebraic Terms</h4>
+            <ul>
+              <li>Variable: letter representing unknown</li>
+              <li>Coefficient: number in front of variable</li>
+              <li>Constant: a fixed number</li>
+              <li>Term: number, variable, or combination</li>
+              <li>Like terms: same variable AND same exponent</li>
+            </ul>
+          </div>
+          <div class="topic-block">
+            <h4>Combining Like Terms</h4>
+            <ul>
+              <li>Only combine terms that are alike</li>
+              <li>Add/subtract coefficients only</li>
+              <li>Variable part stays the same</li>
+              <li>3x + 5x = 8x ✓</li>
+              <li>3x + 5y ≠ 8xy ✗</li>
+            </ul>
+          </div>
+          <div class="topic-block">
+            <h4>Distributive Property</h4>
+            <ul>
+              <li>a(b + c) = ab + ac</li>
+              <li>Multiply EVERYTHING inside</li>
+              <li>Works with subtraction too</li>
+              <li>3(x + 4) = 3x + 12</li>
+              <li>-2(x - 5) = -2x + 10</li>
+            </ul>
+          </div>
+          <div class="topic-block">
+            <h4>Solving One-Step Equations</h4>
+            <ul>
+              <li>Goal: get variable alone</li>
+              <li>Use inverse operations</li>
+              <li>Whatever you do to one side, do to both</li>
+              <li>x + 5 = 12 → x = 7</li>
+              <li>3x = 21 → x = 7</li>
+            </ul>
+          </div>
+        </div>
+        <hr class="divider" data-label="MULTI-STEP">
+        <div class="key-fact"><strong>Two-step equations:</strong> 1) undo addition/subtraction first, 2) then undo multiplication/division</div>
+        <div class="key-fact"><strong>Variables on both sides:</strong> move variables to one side first using inverse ops, then solve</div>
+      </div>
+    </div>
+
+    <!-- Unit 4: Inequalities -->
+    <div class="study-card fade-up d3">
+      <div class="card-header" onclick="toggleCard(this)">
+        <span class="card-title"><span class="card-num">04</span> INEQUALITIES</span>
+        <span class="card-toggle">▶</span>
+      </div>
+      <div class="card-body">
+        <div class="topic-grid">
+          <div class="topic-block">
+            <h4>Inequality Symbols</h4>
+            <ul>
+              <li>&lt; less than (open circle)</li>
+              <li>&gt; greater than (open circle)</li>
+              <li>≤ less than or equal (closed circle)</li>
+              <li>≥ greater than or equal (closed circle)</li>
+            </ul>
+          </div>
+          <div class="topic-block">
+            <h4>Solving Inequalities</h4>
+            <ul>
+              <li>Same steps as equations</li>
+              <li><strong>FLIP the sign when multiplying or dividing by a NEGATIVE</strong></li>
+              <li>-2x &lt; 8 → x &gt; -4 (sign flipped!)</li>
+              <li>Graph on number line</li>
+            </ul>
+          </div>
+          <div class="topic-block">
+            <h4>Graphing on Number Line</h4>
+            <ul>
+              <li>Open circle: &lt; or &gt;</li>
+              <li>Closed (filled) circle: ≤ or ≥</li>
+              <li>Shade left for less than</li>
+              <li>Shade right for greater than</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Unit 5: Geometry -->
+    <div class="study-card fade-up d3">
+      <div class="card-header" onclick="toggleCard(this)">
+        <span class="card-title"><span class="card-num">05</span> GEOMETRY & MEASUREMENT</span>
+        <span class="card-toggle">▶</span>
+      </div>
+      <div class="card-body">
+        <div class="topic-grid">
+          <div class="topic-block">
+            <h4>Area Formulas</h4>
+            <ul>
+              <li>Rectangle: A = l × w</li>
+              <li>Triangle: A = ½ × b × h</li>
+              <li>Circle: A = πr²</li>
+              <li>Trapezoid: A = ½(b₁+b₂)h</li>
+              <li>Parallelogram: A = b × h</li>
+            </ul>
+          </div>
+          <div class="topic-block">
+            <h4>Perimeter & Circumference</h4>
+            <ul>
+              <li>Rectangle: P = 2l + 2w</li>
+              <li>Square: P = 4s</li>
+              <li>Triangle: add all sides</li>
+              <li>Circle (C): C = 2πr = πd</li>
+              <li>π ≈ 3.14 or 22/7</li>
+            </ul>
+          </div>
+          <div class="topic-block">
+            <h4>Volume</h4>
+            <ul>
+              <li>Rectangular prism: V = lwh</li>
+              <li>Cylinder: V = πr²h</li>
+              <li>Pyramid: V = ⅓ × B × h</li>
+              <li>Cone: V = ⅓πr²h</li>
+              <li>Sphere: V = (4/3)πr³</li>
+            </ul>
+          </div>
+          <div class="topic-block">
+            <h4>Angles</h4>
+            <ul>
+              <li>Complementary: add to 90°</li>
+              <li>Supplementary: add to 180°</li>
+              <li>Vertical angles: equal</li>
+              <li>Triangle angles sum: 180°</li>
+              <li>Quadrilateral angles: 360°</li>
+            </ul>
+          </div>
+        </div>
+        <div class="key-fact"><strong>Pythagorean Theorem:</strong> a² + b² = c² (only for right triangles, c = hypotenuse)</div>
+      </div>
+    </div>
+
+    <!-- Unit 6: Probability & Stats -->
+    <div class="study-card fade-up d3">
+      <div class="card-header" onclick="toggleCard(this)">
+        <span class="card-title"><span class="card-num">06</span> PROBABILITY & STATISTICS</span>
+        <span class="card-toggle">▶</span>
+      </div>
+      <div class="card-body">
+        <div class="topic-grid">
+          <div class="topic-block">
+            <h4>Probability</h4>
+            <ul>
+              <li>P(event) = favorable outcomes / total outcomes</li>
+              <li>Always between 0 and 1</li>
+              <li>Certain event: P = 1</li>
+              <li>Impossible event: P = 0</li>
+              <li>Complementary: P(A) + P(not A) = 1</li>
+            </ul>
+          </div>
+          <div class="topic-block">
+            <h4>Measures of Center</h4>
+            <ul>
+              <li>Mean: sum ÷ number of values</li>
+              <li>Median: middle value when ordered</li>
+              <li>Mode: most frequent value</li>
+              <li>Range: max − min</li>
+              <li>Outliers affect mean most</li>
+            </ul>
+          </div>
+          <div class="topic-block">
+            <h4>Data Displays</h4>
+            <ul>
+              <li>Histogram: bars, no gaps, continuous data</li>
+              <li>Box plot: shows 5-number summary</li>
+              <li>Scatter plot: shows correlation</li>
+              <li>Bar graph: comparing categories</li>
+              <li>Line graph: change over time</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ⊕ SOLVE: Equations -->
+    <div class="study-card fade-up d3">
+      <div class="card-header" onclick="toggleCard(this)">
+        <span class="card-title"><span class="card-num">⊕</span> HOW TO SOLVE — ONE &amp; TWO-STEP EQUATIONS</span>
+        <span class="card-toggle">▶</span>
+      </div>
+      <div class="card-body">
+        <div class="solve-section">
+          <div class="memory-trick">
+            Think of an equation as a <strong style="color:#fff">balance scale</strong>. Whatever weight you add or remove from one side, you MUST do the same to the other side or it tips. Your ONLY goal: get the variable completely alone. Undo operations in the reverse order they were applied — undo + and − first, then × and ÷.
+          </div>
+          <div class="formula-big">INVERSE OPERATIONS &nbsp;|&nbsp; + ↔ − &nbsp;&nbsp; × ↔ ÷ &nbsp;&nbsp; x² ↔ √</div>
+
+          <div class="solve-title">// ONE-STEP — ADDITION/SUBTRACTION</div>
+          <div class="solve-cols">
+            <div class="solve-example">
+              <div class="solve-example-label">EXAMPLE A</div>
+              <div class="solve-problem">x + 9 = 17</div>
+              <ol class="solve-steps">
+                <li><span>9 is added to x. Undo it by subtracting 9 from BOTH sides.<br><span class="math">x + 9 − 9 = 17 − 9</span><br><span class="step-note">The +9 and −9 cancel on the left</span></span></li>
+                <li><span>Left side simplifies to just x.<br><span class="math">x = 8</span></span></li>
+                <li><span>CHECK: plug 8 back in. 8 + 9 = 17 ✓</span></li>
+              </ol>
+              <div class="solve-answer">x = 8</div>
+            </div>
+            <div class="solve-example">
+              <div class="solve-example-label">EXAMPLE B</div>
+              <div class="solve-problem">x − 7 = 4</div>
+              <ol class="solve-steps">
+                <li><span>7 is subtracted. Undo by adding 7 to both sides.<br><span class="math">x − 7 + 7 = 4 + 7</span></span></li>
+                <li><span>Simplify.<br><span class="math">x = 11</span></span></li>
+                <li><span>CHECK: 11 − 7 = 4 ✓</span></li>
+              </ol>
+              <div class="solve-answer">x = 11</div>
+            </div>
+          </div>
+
+          <div class="solve-title">// ONE-STEP — MULTIPLICATION/DIVISION</div>
+          <div class="solve-cols">
+            <div class="solve-example">
+              <div class="solve-example-label">EXAMPLE C</div>
+              <div class="solve-problem">4x = 28</div>
+              <ol class="solve-steps">
+                <li><span>x is being multiplied by 4. Undo by dividing both sides by 4.<br><span class="math">4x / 4 = 28 / 4</span><br><span class="step-note">The 4s cancel on the left</span></span></li>
+                <li><span><span class="math">x = 7</span></span></li>
+                <li><span>CHECK: 4 × 7 = 28 ✓</span></li>
+              </ol>
+              <div class="solve-answer">x = 7</div>
+            </div>
+            <div class="solve-example">
+              <div class="solve-example-label">EXAMPLE D — fraction coefficient</div>
+              <div class="solve-problem">x/3 = 5</div>
+              <ol class="solve-steps">
+                <li><span>x is divided by 3. Undo by multiplying both sides by 3.<br><span class="math">x/3 × 3 = 5 × 3</span></span></li>
+                <li><span><span class="math">x = 15</span></span></li>
+                <li><span>CHECK: 15/3 = 5 ✓</span></li>
+              </ol>
+              <div class="solve-answer">x = 15</div>
+            </div>
+          </div>
+
+          <div class="solve-title">// TWO-STEP EQUATIONS — always undo + / − FIRST, then × / ÷</div>
+          <div class="solve-cols">
+            <div class="solve-example">
+              <div class="solve-example-label">EXAMPLE E</div>
+              <div class="solve-problem">3x − 4 = 11</div>
+              <ol class="solve-steps">
+                <li><span>Undo the −4 first. Add 4 to both sides.<br><span class="math">3x − 4 + 4 = 11 + 4</span><br><span class="math">3x = 15</span></span></li>
+                <li><span>Now undo the ×3. Divide both sides by 3.<br><span class="math">3x / 3 = 15 / 3</span><br><span class="math">x = 5</span></span></li>
+                <li><span>CHECK: 3(5) − 4 = 15 − 4 = 11 ✓</span></li>
+              </ol>
+              <div class="solve-answer">x = 5</div>
+            </div>
+            <div class="solve-example">
+              <div class="solve-example-label">EXAMPLE F — negative result</div>
+              <div class="solve-problem">2x + 10 = 4</div>
+              <ol class="solve-steps">
+                <li><span>Subtract 10 from both sides.<br><span class="math">2x = 4 − 10 = −6</span><br><span class="step-note">It's ok for x to be negative!</span></span></li>
+                <li><span>Divide both sides by 2.<br><span class="math">x = −3</span></span></li>
+                <li><span>CHECK: 2(−3) + 10 = −6 + 10 = 4 ✓</span></li>
+              </ol>
+              <div class="solve-answer">x = −3</div>
+            </div>
+          </div>
+
+          <div class="solve-title">// VARIABLES ON BOTH SIDES — collect variables to one side first</div>
+          <div class="solve-cols">
+            <div class="solve-example">
+              <div class="solve-example-label">EXAMPLE G</div>
+              <div class="solve-problem">5x + 2 = 3x + 10</div>
+              <ol class="solve-steps">
+                <li><span>Move variables to left: subtract 3x from both sides.<br><span class="math">5x − 3x + 2 = 10</span><br><span class="math">2x + 2 = 10</span></span></li>
+                <li><span>Subtract 2.<br><span class="math">2x = 8</span></span></li>
+                <li><span>Divide by 2.<br><span class="math">x = 4</span></span></li>
+                <li><span>CHECK: 5(4)+2 = 22 &nbsp;=&nbsp; 3(4)+10 = 22 ✓</span></li>
+              </ol>
+              <div class="solve-answer">x = 4</div>
+            </div>
+            <div class="solve-example">
+              <div class="solve-example-label">EXAMPLE H — needs distributing first</div>
+              <div class="solve-problem">2(x + 3) = x + 9</div>
+              <ol class="solve-steps">
+                <li><span>Distribute the 2 first.<br><span class="math">2x + 6 = x + 9</span></span></li>
+                <li><span>Subtract x from both sides.<br><span class="math">x + 6 = 9</span></span></li>
+                <li><span>Subtract 6.<br><span class="math">x = 3</span></span></li>
+                <li><span>CHECK: 2(3+3) = 12 &nbsp;=&nbsp; 3+9 = 12 ✓</span></li>
+              </ol>
+              <div class="solve-answer">x = 3</div>
+            </div>
+          </div>
+          <div class="memory-trick">
+            <strong style="color:#fff">COMMON MISTAKE:</strong> Forgetting to distribute before collecting like terms. Anytime you see a number directly outside parentheses like 3(x+2), you MUST multiply through before doing anything else.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ⊕ SOLVE: Fractions -->
+    <div class="study-card fade-up d3">
+      <div class="card-header" onclick="toggleCard(this)">
+        <span class="card-title"><span class="card-num">⊕</span> HOW TO SOLVE — FRACTION OPERATIONS</span>
+        <span class="card-toggle">▶</span>
+      </div>
+      <div class="card-body">
+        <div class="solve-section">
+          <div class="formula-big">ADD/SUB: need LCD &nbsp;|&nbsp; MULTIPLY: straight across &nbsp;|&nbsp; DIVIDE: Keep·Change·Flip</div>
+          <div class="memory-trick">
+            The #1 rule: you can ONLY add or subtract fractions when the denominators are the same. Think of it like combining apples — you can't add 1 third-apple and 1 quarter-apple without cutting them into same-size pieces first (that's the LCD).
+          </div>
+
+          <div class="solve-title">// HOW TO FIND THE LCD (LEAST COMMON DENOMINATOR)</div>
+          <div class="solve-example">
+            <div class="solve-example-label">FINDING LCD — method: list multiples</div>
+            <div class="solve-problem">Find LCD of 4 and 6</div>
+            <ol class="solve-steps">
+              <li><span>List multiples of 4: &nbsp;<span class="math">4, 8, 12, 16, 20...</span></span></li>
+              <li><span>List multiples of 6: &nbsp;<span class="math">6, 12, 18, 24...</span></span></li>
+              <li><span>Find the SMALLEST number that appears in BOTH lists.<br><span class="math">LCD = 12</span></span></li>
+            </ol>
+            <div class="solve-answer">LCD = 12</div>
+          </div>
+
+          <div class="solve-title">// ADDING FRACTIONS</div>
+          <div class="solve-cols">
+            <div class="solve-example">
+              <div class="solve-example-label">EXAMPLE A — different denominators</div>
+              <div class="solve-problem">1/3 + 1/4</div>
+              <ol class="solve-steps">
+                <li><span>Find LCD of 3 and 4.<br><span class="math">LCD = 12</span></span></li>
+                <li><span>Convert 1/3: multiply top and bottom by 4.<br><span class="math">1×4 / 3×4 = 4/12</span></span></li>
+                <li><span>Convert 1/4: multiply top and bottom by 3.<br><span class="math">1×3 / 4×3 = 3/12</span></span></li>
+                <li><span>Add numerators, KEEP denominator.<br><span class="math">4/12 + 3/12 = 7/12</span></span></li>
+              </ol>
+              <div class="solve-answer">7/12</div>
+            </div>
+            <div class="solve-example">
+              <div class="solve-example-label">EXAMPLE B — mixed numbers</div>
+              <div class="solve-problem">2½ + 1¾</div>
+              <ol class="solve-steps">
+                <li><span>Convert to improper fractions.<br><span class="math">2½ = 5/2 &nbsp;&nbsp; 1¾ = 7/4</span><br><span class="step-note">Formula: (whole × denom + num) / denom</span></span></li>
+                <li><span>LCD of 2 and 4 is 4. Convert 5/2.<br><span class="math">5/2 = 10/4</span></span></li>
+                <li><span>Add: 10/4 + 7/4 = 17/4</span></li>
+                <li><span>Convert back: 17 ÷ 4 = 4 remainder 1.<br><span class="math">= 4¼</span></span></li>
+              </ol>
+              <div class="solve-answer">4¼</div>
+            </div>
+          </div>
+
+          <div class="solve-title">// SUBTRACTING FRACTIONS</div>
+          <div class="solve-cols">
+            <div class="solve-example">
+              <div class="solve-example-label">EXAMPLE C</div>
+              <div class="solve-problem">5/6 − 1/4</div>
+              <ol class="solve-steps">
+                <li><span>LCD of 6 and 4 = 12.</span></li>
+                <li><span>Convert: 5/6 = 10/12 &nbsp; 1/4 = 3/12</span></li>
+                <li><span>Subtract numerators.<br><span class="math">10/12 − 3/12 = 7/12</span></span></li>
+              </ol>
+              <div class="solve-answer">7/12</div>
+            </div>
+            <div class="solve-example">
+              <div class="solve-example-label">EXAMPLE D — borrowing with mixed numbers</div>
+              <div class="solve-problem">3 − 1⅓</div>
+              <ol class="solve-steps">
+                <li><span>Convert 3 to thirds: &nbsp;<span class="math">3 = 9/3</span></span></li>
+                <li><span>Convert 1⅓ to improper: &nbsp;<span class="math">4/3</span></span></li>
+                <li><span>Subtract: &nbsp;<span class="math">9/3 − 4/3 = 5/3 = 1⅔</span></span></li>
+              </ol>
+              <div class="solve-answer">1⅔</div>
+            </div>
+          </div>
+
+          <div class="solve-title">// MULTIPLYING FRACTIONS — straight across, no LCD needed</div>
+          <div class="solve-cols">
+            <div class="solve-example">
+              <div class="solve-example-label">EXAMPLE E</div>
+              <div class="solve-problem">3/4 × 2/5</div>
+              <ol class="solve-steps">
+                <li><span>Multiply numerators: &nbsp;<span class="math">3 × 2 = 6</span></span></li>
+                <li><span>Multiply denominators: &nbsp;<span class="math">4 × 5 = 20</span></span></li>
+                <li><span>Result: 6/20. Simplify by dividing by GCF (2).<br><span class="math">6/20 = 3/10</span></span></li>
+              </ol>
+              <div class="solve-answer">3/10</div>
+            </div>
+            <div class="solve-example">
+              <div class="solve-example-label">EXAMPLE F — cross-cancel trick</div>
+              <div class="solve-problem">4/9 × 3/8</div>
+              <ol class="solve-steps">
+                <li><span>Cross-cancel BEFORE multiplying: 4 and 8 share factor 4; 3 and 9 share factor 3.<br><span class="math">⁴⁄₉ × ³⁄₈ → ¹⁄₃ × ¹⁄₂</span><br><span class="step-note">Divide diagonally to simplify early</span></span></li>
+                <li><span>Multiply simplified fractions.<br><span class="math">1/3 × 1/2 = 1/6</span></span></li>
+              </ol>
+              <div class="solve-answer">1/6</div>
+            </div>
+          </div>
+
+          <div class="solve-title">// DIVIDING FRACTIONS — Keep · Change · Flip (KCF)</div>
+          <div class="solve-cols">
+            <div class="solve-example">
+              <div class="solve-example-label">EXAMPLE G</div>
+              <div class="solve-problem">(2/3) ÷ (4/5)</div>
+              <ol class="solve-steps">
+                <li><span><strong>Keep</strong> the first fraction: &nbsp;<span class="math">2/3</span></span></li>
+                <li><span><strong>Change</strong> ÷ to ×</span></li>
+                <li><span><strong>Flip</strong> the second fraction (reciprocal): &nbsp;<span class="math">4/5 → 5/4</span></span></li>
+                <li><span>Multiply straight across.<br><span class="math">2/3 × 5/4 = 10/12 = 5/6</span></span></li>
+              </ol>
+              <div class="solve-answer">5/6</div>
+            </div>
+            <div class="solve-example">
+              <div class="solve-example-label">EXAMPLE H — whole number divisor</div>
+              <div class="solve-problem">(3/4) ÷ 2</div>
+              <ol class="solve-steps">
+                <li><span>Write 2 as a fraction: &nbsp;<span class="math">2 = 2/1</span></span></li>
+                <li><span>KCF: Keep 3/4, Change to ×, Flip 2/1 → 1/2.<br><span class="math">3/4 × 1/2 = 3/8</span></span></li>
+              </ol>
+              <div class="solve-answer">3/8</div>
+            </div>
+          </div>
+          <div class="memory-trick">
+            <strong style="color:#fff">COMMON MISTAKES:</strong> (1) Adding denominators — NEVER do 1/3 + 1/4 = 2/7. (2) Forgetting to simplify final answer. (3) Flipping the WRONG fraction when dividing — always flip the SECOND one (the divisor).
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ⊕ SOLVE: Percents -->
+    <div class="study-card fade-up d3">
+      <div class="card-header" onclick="toggleCard(this)">
+        <span class="card-title"><span class="card-num">⊕</span> HOW TO SOLVE — PERCENT PROBLEMS</span>
+        <span class="card-toggle">▶</span>
+      </div>
+      <div class="card-body">
+        <div class="solve-section">
+          <div class="formula-big">Part = (Percent / 100) × Whole &nbsp;&nbsp;&nbsp; % Change = (Change / Original) × 100</div>
+          <div class="memory-trick">
+            Every percent problem is one of THREE types: find the PART, find the WHOLE, or find the PERCENT. The IS/OF trick: "IS" = part (numerator), "OF" = whole (denominator). So "15 is what % of 60?" → IS = 15, OF = 60, % = 15/60 × 100 = 25%.
+          </div>
+
+          <div class="solve-title">// TYPE 1 — FIND THE PART</div>
+          <div class="solve-cols">
+            <div class="solve-example">
+              <div class="solve-example-label">EXAMPLE A</div>
+              <div class="solve-problem">What is 35% of 80?</div>
+              <ol class="solve-steps">
+                <li><span>Convert % to decimal: divide by 100.<br><span class="math">35% = 35/100 = 0.35</span></span></li>
+                <li><span>Multiply decimal by the whole number.<br><span class="math">0.35 × 80 = 28</span></span></li>
+              </ol>
+              <div class="solve-answer">28</div>
+            </div>
+            <div class="solve-example">
+              <div class="solve-example-label">EXAMPLE B — tax/tip</div>
+              <div class="solve-problem">Meal costs $24. 8% tax. Total tax?</div>
+              <ol class="solve-steps">
+                <li><span>Convert: 8% = 0.08</span></li>
+                <li><span>Multiply: 0.08 × 24 = $1.92</span></li>
+                <li><span>Total = $24 + $1.92 = $25.92</span></li>
+              </ol>
+              <div class="solve-answer">$25.92</div>
+            </div>
+          </div>
+
+          <div class="solve-title">// TYPE 2 — FIND THE PERCENT</div>
+          <div class="solve-cols">
+            <div class="solve-example">
+              <div class="solve-example-label">EXAMPLE C</div>
+              <div class="solve-problem">15 is what % of 60?</div>
+              <ol class="solve-steps">
+                <li><span>Write as fraction: Part/Whole.<br><span class="math">15/60</span></span></li>
+                <li><span>Divide: 15 ÷ 60 = 0.25</span></li>
+                <li><span>Multiply by 100 to get %.<br><span class="math">0.25 × 100 = 25%</span></span></li>
+              </ol>
+              <div class="solve-answer">25%</div>
+            </div>
+            <div class="solve-example">
+              <div class="solve-example-label">EXAMPLE D — test score</div>
+              <div class="solve-problem">Got 34 out of 40 correct. What %?</div>
+              <ol class="solve-steps">
+                <li><span>34/40 = 0.85</span></li>
+                <li><span>0.85 × 100 = 85%</span></li>
+              </ol>
+              <div class="solve-answer">85%</div>
+            </div>
+          </div>
+
+          <div class="solve-title">// TYPE 3 — FIND THE WHOLE</div>
+          <div class="solve-cols">
+            <div class="solve-example">
+              <div class="solve-example-label">EXAMPLE E</div>
+              <div class="solve-problem">18 is 30% of what number?</div>
+              <ol class="solve-steps">
+                <li><span>Set up equation: Part = % × Whole.<br><span class="math">18 = 0.30 × W</span></span></li>
+                <li><span>Divide both sides by 0.30.<br><span class="math">W = 18 / 0.30 = 60</span></span></li>
+              </ol>
+              <div class="solve-answer">60</div>
+            </div>
+            <div class="solve-example">
+              <div class="solve-example-label">EXAMPLE F — sale price</div>
+              <div class="solve-problem">Item on 25% off sale costs $45. Original price?</div>
+              <ol class="solve-steps">
+                <li><span>Paying 75% of original (100% − 25%).<br><span class="math">0.75 × P = 45</span></span></li>
+                <li><span>P = 45 / 0.75 = $60</span></li>
+              </ol>
+              <div class="solve-answer">$60</div>
+            </div>
+          </div>
+
+          <div class="solve-title">// PERCENT CHANGE — increase or decrease</div>
+          <div class="solve-example">
+            <div class="solve-example-label">EXAMPLES — always divide by the ORIGINAL</div>
+            <div class="solve-cols" style="margin-top:10px">
+              <div>
+                <div class="solve-problem" style="font-size:13px">Price: $50 → $65. % increase?</div>
+                <ol class="solve-steps">
+                  <li><span>Change = 65 − 50 = 15</span></li>
+                  <li><span>% change = 15/50 × 100 = <span class="math">30% increase</span></span></li>
+                </ol>
+              </div>
+              <div>
+                <div class="solve-problem" style="font-size:13px">Crowd: 200 → 150. % decrease?</div>
+                <ol class="solve-steps">
+                  <li><span>Change = 200 − 150 = 50</span></li>
+                  <li><span>% change = 50/200 × 100 = <span class="math">25% decrease</span></span></li>
+                </ol>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ⊕ SOLVE: Inequalities -->
+    <div class="study-card fade-up d3">
+      <div class="card-header" onclick="toggleCard(this)">
+        <span class="card-title"><span class="card-num">⊕</span> HOW TO SOLVE — INEQUALITIES &amp; GRAPHING</span>
+        <span class="card-toggle">▶</span>
+      </div>
+      <div class="card-body">
+        <div class="solve-section">
+          <div class="formula-big">&lt; or &gt; → open circle &nbsp;&nbsp;&nbsp;&nbsp; ≤ or ≥ → closed (filled) circle</div>
+          <div class="memory-trick">
+            Solve inequalities EXACTLY like equations — with ONE critical exception: <strong style="color:#fff">multiply or divide by a NEGATIVE → FLIP the sign.</strong> Why? Because −1 &lt; 2 is true, but multiply both sides by −1 and you get 1 &gt; −2 (sign flipped to stay true). The number line never lies — always check with a test value.
+          </div>
+
+          <div class="solve-title">// STEP-BY-STEP PROCESS</div>
+          <div class="solve-cols">
+            <div class="solve-example">
+              <div class="solve-example-label">EXAMPLE A — no flip needed</div>
+              <div class="solve-problem">2x + 5 &lt; 13</div>
+              <ol class="solve-steps">
+                <li><span>Subtract 5 from both sides.<br><span class="math">2x &lt; 8</span></span></li>
+                <li><span>Divide by 2 (positive, no flip).<br><span class="math">x &lt; 4</span></span></li>
+                <li><span>Graph: open circle at 4, shade LEFT.<br><span class="step-note">Open circle because x cannot equal 4</span></span></li>
+                <li><span>CHECK with x = 0: 2(0)+5=5 &lt; 13 ✓</span></li>
+              </ol>
+              <div class="solve-answer">x &lt; 4</div>
+            </div>
+            <div class="solve-example">
+              <div class="solve-example-label">EXAMPLE B — FLIP required</div>
+              <div class="solve-problem">−3x + 6 ≥ −9</div>
+              <ol class="solve-steps">
+                <li><span>Subtract 6 from both sides.<br><span class="math">−3x ≥ −15</span></span></li>
+                <li><span>Divide by −3. SIGN FLIPS ≥ becomes ≤.<br><span class="math">x ≤ 5</span><br><span class="step-note">Dividing by NEGATIVE → flip direction</span></span></li>
+                <li><span>Graph: closed circle at 5, shade LEFT.<br><span class="step-note">Closed circle because x CAN equal 5</span></span></li>
+                <li><span>CHECK with x = 0: −3(0)+6=6 ≥ −9 ✓ (0 ≤ 5) ✓</span></li>
+              </ol>
+              <div class="solve-answer">x ≤ 5</div>
+            </div>
+          </div>
+          <div class="solve-cols">
+            <div class="solve-example">
+              <div class="solve-example-label">EXAMPLE C — variables on both sides</div>
+              <div class="solve-problem">5x − 3 &gt; 2x + 9</div>
+              <ol class="solve-steps">
+                <li><span>Subtract 2x from both sides.<br><span class="math">3x − 3 &gt; 9</span></span></li>
+                <li><span>Add 3 to both sides.<br><span class="math">3x &gt; 12</span></span></li>
+                <li><span>Divide by 3 (positive, no flip).<br><span class="math">x &gt; 4</span></span></li>
+                <li><span>Graph: open circle at 4, shade RIGHT.</span></li>
+              </ol>
+              <div class="solve-answer">x &gt; 4</div>
+            </div>
+            <div class="solve-example">
+              <div class="solve-example-label">EXAMPLE D — compound inequality</div>
+              <div class="solve-problem">−2 ≤ 2x + 4 &lt; 10</div>
+              <ol class="solve-steps">
+                <li><span>Subtract 4 from ALL three parts.<br><span class="math">−6 ≤ 2x &lt; 6</span></span></li>
+                <li><span>Divide all three parts by 2.<br><span class="math">−3 ≤ x &lt; 3</span></span></li>
+                <li><span>Graph: closed circle at −3, open circle at 3, shade BETWEEN.</span></li>
+              </ol>
+              <div class="solve-answer">−3 ≤ x &lt; 3</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ⊕ SOLVE: Geometry -->
+    <div class="study-card fade-up d3">
+      <div class="card-header" onclick="toggleCard(this)">
+        <span class="card-title"><span class="card-num">⊕</span> HOW TO SOLVE — AREA, PERIMETER &amp; PYTHAGOREAN THEOREM</span>
+        <span class="card-toggle">▶</span>
+      </div>
+      <div class="card-body">
+        <div class="solve-section">
+          <div class="formula-big">Area inside shape &nbsp;|&nbsp; Perimeter = outer edge total &nbsp;|&nbsp; a² + b² = c²</div>
+
+          <div class="solve-title">// AREA FORMULAS — applied</div>
+          <div class="solve-cols">
+            <div class="solve-example">
+              <div class="solve-example-label">RECTANGLE — A = l × w</div>
+              <div class="solve-problem">l = 12 cm, w = 7 cm</div>
+              <ol class="solve-steps">
+                <li><span>Multiply length × width.<br><span class="math">A = 12 × 7 = 84 cm²</span></span></li>
+                <li><span>Perimeter = 2(l + w) = 2(12+7) = 38 cm</span></li>
+              </ol>
+              <div class="solve-answer">A = 84 cm², P = 38 cm</div>
+            </div>
+            <div class="solve-example">
+              <div class="solve-example-label">TRIANGLE — A = ½ × b × h</div>
+              <div class="solve-problem">base = 10 m, height = 6 m</div>
+              <ol class="solve-steps">
+                <li><span>The height must be PERPENDICULAR to the base (may not be a side).</span></li>
+                <li><span><span class="math">A = ½ × 10 × 6 = ½ × 60 = 30 m²</span></span></li>
+              </ol>
+              <div class="solve-answer">A = 30 m²</div>
+            </div>
+          </div>
+          <div class="solve-cols">
+            <div class="solve-example">
+              <div class="solve-example-label">CIRCLE — A = πr², C = 2πr</div>
+              <div class="solve-problem">radius = 5 ft</div>
+              <ol class="solve-steps">
+                <li><span>Area: π × 5² = π × 25 ≈ <span class="math">78.5 ft²</span></span></li>
+                <li><span>Circumference: 2 × π × 5 ≈ <span class="math">31.4 ft</span></span></li>
+                <li><span><span class="step-note">r = radius (half the diameter). If given diameter, divide by 2 first!</span></span></li>
+              </ol>
+              <div class="solve-answer">A ≈ 78.5 ft², C ≈ 31.4 ft</div>
+            </div>
+            <div class="solve-example">
+              <div class="solve-example-label">TRAPEZOID — A = ½(b₁+b₂)h</div>
+              <div class="solve-problem">b₁=8, b₂=5, h=4</div>
+              <ol class="solve-steps">
+                <li><span>Add the two parallel bases: 8 + 5 = 13</span></li>
+                <li><span>Multiply by height then divide by 2.<br><span class="math">A = ½ × 13 × 4 = 26</span></span></li>
+              </ol>
+              <div class="solve-answer">A = 26 units²</div>
+            </div>
+          </div>
+
+          <div class="solve-title">// PYTHAGOREAN THEOREM — RIGHT TRIANGLES ONLY</div>
+          <div class="formula-big">a² + b² = c² &nbsp;&nbsp; c = hypotenuse (longest side, across from right angle)</div>
+          <div class="memory-trick">
+            The hypotenuse is ALWAYS c. It's the longest side and it's always across from the 90° angle. Memorize these triples: <strong style="color:#fff">3-4-5</strong>, <strong style="color:#fff">5-12-13</strong>, <strong style="color:#fff">8-15-17</strong>. Any multiple works: 6-8-10, 9-12-15, 10-24-26.
+          </div>
+          <div class="solve-cols">
+            <div class="solve-example">
+              <div class="solve-example-label">EXAMPLE — find hypotenuse</div>
+              <div class="solve-problem">legs: a = 9, b = 12, find c</div>
+              <ol class="solve-steps">
+                <li><span>Square both legs.<br><span class="math">9² = 81 &nbsp;&nbsp; 12² = 144</span></span></li>
+                <li><span>Add.<br><span class="math">81 + 144 = 225</span></span></li>
+                <li><span>Square root.<br><span class="math">c = √225 = 15</span></span></li>
+              </ol>
+              <div class="solve-answer">c = 15</div>
+            </div>
+            <div class="solve-example">
+              <div class="solve-example-label">EXAMPLE — find a missing leg</div>
+              <div class="solve-problem">a = 8, c = 17, find b</div>
+              <ol class="solve-steps">
+                <li><span>Rearrange for the missing leg.<br><span class="math">b² = c² − a²</span></span></li>
+                <li><span>Substitute.<br><span class="math">b² = 17² − 8² = 289 − 64 = 225</span></span></li>
+                <li><span>Square root.<br><span class="math">b = √225 = 15</span></span></li>
+              </ol>
+              <div class="solve-answer">b = 15</div>
+            </div>
+          </div>
+          <div class="memory-trick">
+            <strong style="color:#fff">COMMON MISTAKE:</strong> Adding the hypotenuse to find a leg: a² + c² ≠ b². When finding a leg, SUBTRACT: b² = c² − a². The hypotenuse is always what you subtract FROM.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ⊕ SOLVE: Probability & Stats -->
+    <div class="study-card fade-up d3">
+      <div class="card-header" onclick="toggleCard(this)">
+        <span class="card-title"><span class="card-num">⊕</span> HOW TO SOLVE — PROBABILITY &amp; STATISTICS</span>
+        <span class="card-toggle">▶</span>
+      </div>
+      <div class="card-body">
+        <div class="solve-section">
+          <div class="formula-big">P(event) = favorable outcomes / total outcomes &nbsp;&nbsp; Mean = sum / count</div>
+
+          <div class="solve-title">// PROBABILITY</div>
+          <div class="solve-cols">
+            <div class="solve-example">
+              <div class="solve-example-label">EXAMPLE A — simple probability</div>
+              <div class="solve-problem">Bag has 3 red, 5 blue, 2 green marbles. P(red)?</div>
+              <ol class="solve-steps">
+                <li><span>Count favorable outcomes: 3 red</span></li>
+                <li><span>Count total outcomes: 3+5+2 = 10</span></li>
+                <li><span><span class="math">P(red) = 3/10 = 0.3 = 30%</span></span></li>
+              </ol>
+              <div class="solve-answer">3/10 or 30%</div>
+            </div>
+            <div class="solve-example">
+              <div class="solve-example-label">EXAMPLE B — complement rule</div>
+              <div class="solve-problem">P(NOT rolling a 6) on a die?</div>
+              <ol class="solve-steps">
+                <li><span>P(6) = 1/6</span></li>
+                <li><span>Complement: P(not 6) = 1 − P(6)<br><span class="math">= 1 − 1/6 = 5/6</span></span></li>
+              </ol>
+              <div class="solve-answer">5/6</div>
+            </div>
+          </div>
+
+          <div class="solve-title">// MEAN, MEDIAN, MODE, RANGE</div>
+          <div class="solve-example">
+            <div class="solve-example-label">DATA SET: 4, 7, 7, 9, 13, 15, 15, 15, 20</div>
+            <div class="solve-cols" style="margin-top:12px">
+              <div>
+                <ol class="solve-steps">
+                  <li><span><strong style="color:#fff">MEAN</strong> (average): add all, divide by count.<br><span class="math">(4+7+7+9+13+15+15+15+20)/9 = 105/9 ≈ 11.67</span></span></li>
+                  <li><span><strong style="color:#fff">MEDIAN</strong> (middle when sorted): data has 9 values, middle is 5th.<br><span class="math">4, 7, 7, 9, [13], 15, 15, 15, 20 → median = 13</span></span></li>
+                </ol>
+              </div>
+              <div>
+                <ol class="solve-steps">
+                  <li><span><strong style="color:#fff">MODE</strong> (most frequent): 15 appears 3 times.<br><span class="math">Mode = 15</span></span></li>
+                  <li><span><strong style="color:#fff">RANGE</strong>: max − min.<br><span class="math">20 − 4 = 16</span></span></li>
+                </ol>
+              </div>
+            </div>
+          </div>
+          <div class="memory-trick">
+            Even number of data values? Median = average of the TWO middle numbers. Outliers affect the MEAN the most, not median or mode — that's why median is used for home prices instead of average!
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Flashcards -->
+    <div class="study-card fade-up d4">
+      <div class="card-header" onclick="toggleCard(this)">
+        <span class="card-title"><span class="card-num">★</span> FLASHCARDS — Pre-Algebra</span>
+        <span class="card-toggle">▶</span>
+      </div>
+      <div class="card-body">
+        <p style="font-size:10px;color:var(--dim);letter-spacing:0.1em;margin-bottom:14px;">TAP A CARD TO FLIP IT</p>
+        <div class="flashcard-grid">
+          <div class="flashcard" onclick="this.classList.toggle('flipped')"><div class="flashcard-inner"><div class="fc-front"><div class="fc-label">Q</div><div class="fc-text">What is an irrational number?</div></div><div class="fc-back"><div class="fc-label">A</div><div class="fc-text">A number that cannot be expressed as a fraction; its decimal is non-terminating and non-repeating. Ex: π, √2</div></div></div></div>
+          <div class="flashcard" onclick="this.classList.toggle('flipped')"><div class="flashcard-inner"><div class="fc-front"><div class="fc-label">Q</div><div class="fc-text">What happens to inequality when dividing by negative?</div></div><div class="fc-back"><div class="fc-label">A</div><div class="fc-text">The inequality sign FLIPS direction. -2x &lt; 6 becomes x &gt; -3</div></div></div></div>
+          <div class="flashcard" onclick="this.classList.toggle('flipped')"><div class="flashcard-inner"><div class="fc-front"><div class="fc-label">Q</div><div class="fc-text">Formula: Area of a triangle?</div></div><div class="fc-back"><div class="fc-label">A</div><div class="fc-text">A = ½ × base × height</div></div></div></div>
+          <div class="flashcard" onclick="this.classList.toggle('flipped')"><div class="flashcard-inner"><div class="fc-front"><div class="fc-label">Q</div><div class="fc-text">What does PEMDAS stand for?</div></div><div class="fc-back"><div class="fc-label">A</div><div class="fc-text">Parentheses, Exponents, Multiply/Divide (L→R), Add/Subtract (L→R)</div></div></div></div>
+          <div class="flashcard" onclick="this.classList.toggle('flipped')"><div class="flashcard-inner"><div class="fc-front"><div class="fc-label">Q</div><div class="fc-text">What is the Pythagorean Theorem?</div></div><div class="fc-back"><div class="fc-label">A</div><div class="fc-text">a² + b² = c² where c is always the hypotenuse (longest side)</div></div></div></div>
+          <div class="flashcard" onclick="this.classList.toggle('flipped')"><div class="flashcard-inner"><div class="fc-front"><div class="fc-label">Q</div><div class="fc-text">How do you calculate probability?</div></div><div class="fc-back"><div class="fc-label">A</div><div class="fc-text">P = favorable outcomes ÷ total outcomes. Result is between 0 and 1.</div></div></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════
+       ALGEBRA PANEL
+  ═══════════════════════════════════════ -->
+  <div class="panel" id="panel-algebra">
+
+    <div class="study-card fade-up d2">
+      <div class="card-header open" onclick="toggleCard(this)">
+        <span class="card-title"><span class="card-num">01</span> EXPRESSIONS, EQUATIONS & IDENTITIES</span>
+        <span class="card-toggle">▶</span>
+      </div>
+      <div class="card-body open">
+        <div class="topic-grid">
+          <div class="topic-block">
+            <h4>Properties of Real Numbers</h4>
+            <ul>
+              <li>Commutative: a+b = b+a, ab = ba</li>
+              <li>Associative: (a+b)+c = a+(b+c)</li>
+              <li>Distributive: a(b+c) = ab+ac</li>
+              <li>Identity: a+0=a, a×1=a</li>
+              <li>Inverse: a+(-a)=0, a×(1/a)=1</li>
+            </ul>
+          </div>
+          <div class="topic-block">
+            <h4>Exponent Rules</h4>
+            <ul>
+              <li>Product: xᵃ × xᵇ = xᵃ⁺ᵇ</li>
+              <li>Quotient: xᵃ ÷ xᵇ = xᵃ⁻ᵇ</li>
+              <li>Power: (xᵃ)ᵇ = xᵃᵇ</li>
+              <li>Zero: x⁰ = 1 (x ≠ 0)</li>
+              <li>Negative: x⁻ⁿ = 1/xⁿ</li>
+            </ul>
+          </div>
+          <div class="topic-block">
+            <h4>Scientific Notation</h4>
+            <ul>
+              <li>Form: a × 10ⁿ where 1 ≤ a &lt; 10</li>
+              <li>Large numbers: positive n</li>
+              <li>Small numbers: negative n</li>
+              <li>Multiplying: multiply a's, add exponents</li>
+              <li>Dividing: divide a's, subtract exponents</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="study-card fade-up d3">
+      <div class="card-header" onclick="toggleCard(this)">
+        <span class="card-title"><span class="card-num">02</span> LINEAR EQUATIONS & FUNCTIONS</span>
+        <span class="card-toggle">▶</span>
+      </div>
+      <div class="card-body">
+        <div class="topic-grid">
+          <div class="topic-block">
+            <h4>Slope</h4>
+            <ul>
+              <li>m = rise/run = (y₂-y₁)/(x₂-x₁)</li>
+              <li>Positive slope: goes up left→right</li>
+              <li>Negative slope: goes down left→right</li>
+              <li>Zero slope: horizontal line</li>
+              <li>Undefined slope: vertical line</li>
+            </ul>
+          </div>
+          <div class="topic-block">
+            <h4>Forms of Linear Equations</h4>
+            <ul>
+              <li>Slope-intercept: y = mx + b</li>
+              <li>Standard form: Ax + By = C</li>
+              <li>Point-slope: y-y₁ = m(x-x₁)</li>
+              <li>m = slope, b = y-intercept</li>
+            </ul>
+          </div>
+          <div class="topic-block">
+            <h4>Graphing a Line</h4>
+            <ul>
+              <li>1. Find y-intercept (b) — plot on y-axis</li>
+              <li>2. Use slope (rise/run) to find next point</li>
+              <li>3. Draw line through points</li>
+              <li>x-int: set y=0, solve for x</li>
+              <li>y-int: set x=0, solve for y</li>
+            </ul>
+          </div>
+          <div class="topic-block">
+            <h4>Functions</h4>
+            <ul>
+              <li>Function: each input → exactly one output</li>
+              <li>Vertical Line Test: if line crosses twice → NOT a function</li>
+              <li>Domain: all valid inputs (x values)</li>
+              <li>Range: all valid outputs (y values)</li>
+            </ul>
+          </div>
+        </div>
+        <div class="key-fact"><strong>Parallel lines</strong> have the SAME slope (different y-intercepts)</div>
+        <div class="key-fact"><strong>Perpendicular lines</strong> have slopes that are NEGATIVE RECIPROCALS (m₁ × m₂ = -1)</div>
+      </div>
+    </div>
+
+    <div class="study-card fade-up d3">
+      <div class="card-header" onclick="toggleCard(this)">
+        <span class="card-title"><span class="card-num">03</span> SYSTEMS OF EQUATIONS</span>
+        <span class="card-toggle">▶</span>
+      </div>
+      <div class="card-body">
+        <div class="topic-grid">
+          <div class="topic-block">
+            <h4>Solving by Graphing</h4>
+            <ul>
+              <li>Graph both equations</li>
+              <li>Solution = intersection point</li>
+              <li>One solution: lines cross once</li>
+              <li>No solution: parallel lines</li>
+              <li>Infinite solutions: same line</li>
+            </ul>
+          </div>
+          <div class="topic-block">
+            <h4>Substitution Method</h4>
+            <ul>
+              <li>1. Solve one equation for one variable</li>
+              <li>2. Substitute into other equation</li>
+              <li>3. Solve for remaining variable</li>
+              <li>4. Plug back in to find other variable</li>
+            </ul>
+          </div>
+          <div class="topic-block">
+            <h4>Elimination Method</h4>
+            <ul>
+              <li>1. Line up equations</li>
+              <li>2. Add or subtract to eliminate a variable</li>
+              <li>3. May need to multiply first</li>
+              <li>4. Solve, then substitute back</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="study-card fade-up d3">
+      <div class="card-header" onclick="toggleCard(this)">
+        <span class="card-title"><span class="card-num">04</span> POLYNOMIALS</span>
+        <span class="card-toggle">▶</span>
+      </div>
+      <div class="card-body">
+        <div class="topic-grid">
+          <div class="topic-block">
+            <h4>Polynomial Vocabulary</h4>
+            <ul>
+              <li>Monomial: one term (3x²)</li>
+              <li>Binomial: two terms (x+5)</li>
+              <li>Trinomial: three terms (x²+3x+2)</li>
+              <li>Degree: highest exponent</li>
+              <li>Leading coefficient: front term's coefficient</li>
+            </ul>
+          </div>
+          <div class="topic-block">
+            <h4>Adding & Subtracting</h4>
+            <ul>
+              <li>Combine like terms only</li>
+              <li>Subtracting: distribute the negative first</li>
+              <li>(2x²+3x)+(x²-x) = 3x²+2x</li>
+            </ul>
+          </div>
+          <div class="topic-block">
+            <h4>Multiplying Polynomials</h4>
+            <ul>
+              <li>FOIL: First, Outer, Inner, Last (binomials)</li>
+              <li>For longer: distribute each term</li>
+              <li>(x+2)(x+3) = x²+5x+6</li>
+              <li>Special: (a+b)² = a²+2ab+b²</li>
+              <li>Special: (a+b)(a-b) = a²-b²</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="study-card fade-up d3">
+      <div class="card-header" onclick="toggleCard(this)">
+        <span class="card-title"><span class="card-num">05</span> FACTORING</span>
+        <span class="card-toggle">▶</span>
+      </div>
+      <div class="card-body">
+        <div class="topic-grid">
+          <div class="topic-block">
+            <h4>GCF Factoring</h4>
+            <ul>
+              <li>Find greatest common factor of all terms</li>
+              <li>Factor it out front</li>
+              <li>6x² + 9x = 3x(2x + 3)</li>
+              <li>Always check GCF first!</li>
+            </ul>
+          </div>
+          <div class="topic-block">
+            <h4>Factoring Trinomials (x²+bx+c)</h4>
+            <ul>
+              <li>Find two numbers that multiply to c AND add to b</li>
+              <li>x²+5x+6 = (x+2)(x+3)</li>
+              <li>2 × 3 = 6 and 2+3 = 5 ✓</li>
+            </ul>
+          </div>
+          <div class="topic-block">
+            <h4>Difference of Squares</h4>
+            <ul>
+              <li>a²-b² = (a+b)(a-b)</li>
+              <li>x²-25 = (x+5)(x-5)</li>
+              <li>Both terms must be perfect squares</li>
+              <li>Signs must be opposite</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="study-card fade-up d3">
+      <div class="card-header" onclick="toggleCard(this)">
+        <span class="card-title"><span class="card-num">06</span> QUADRATIC EQUATIONS</span>
+        <span class="card-toggle">▶</span>
+      </div>
+      <div class="card-body">
+        <div class="topic-grid">
+          <div class="topic-block">
+            <h4>Standard Form</h4>
+            <ul>
+              <li>ax² + bx + c = 0</li>
+              <li>Parabola shape when graphed</li>
+              <li>Vertex: highest/lowest point</li>
+              <li>Axis of symmetry: x = -b/2a</li>
+            </ul>
+          </div>
+          <div class="topic-block">
+            <h4>Solving Methods</h4>
+            <ul>
+              <li>Factoring (when factorable)</li>
+              <li>Square roots (no bx term)</li>
+              <li>Completing the square</li>
+              <li>Quadratic formula (always works)</li>
+            </ul>
+          </div>
+        </div>
+        <div class="key-fact"><strong>Quadratic Formula:</strong> x = (-b ± √(b²-4ac)) / 2a</div>
+        <div class="key-fact"><strong>Discriminant (b²-4ac):</strong> positive = 2 real solutions, zero = 1 solution, negative = no real solutions</div>
+      </div>
+    </div>
+
+    <!-- HOW TO SOLVE — Algebra -->
+    <div class="study-card fade-up d3">
+      <div class="card-header" onclick="toggleCard(this)">
+        <span class="card-title"><span class="card-num">⊕</span> HOW TO SOLVE — Step-by-Step Methods</span>
+        <span class="card-toggle">▶</span>
+      </div>
+      <div class="card-body">
+
+        <!-- Slope & Linear Equations -->
+        <div class="solve-section">
+          <div class="solve-title">// METHOD 1 — SLOPE & LINEAR EQUATIONS</div>
+          <div class="formula-big">m = (y₂ − y₁) / (x₂ − x₁) &nbsp;&nbsp; y = mx + b</div>
+          <div class="memory-trick">
+            Slope = "rise over run" — how much you go UP (or down) divided by how much you go RIGHT. If the line goes up → positive slope. Goes down → negative slope. Flat line → slope = 0. Vertical → undefined (can't divide by 0). The b in y = mx + b is where the line CROSSES the y-axis (set x = 0).
+          </div>
+          <div class="solve-cols">
+            <div class="solve-example">
+              <div class="solve-example-label">EXAMPLE — find slope from two points</div>
+              <div class="solve-problem">Points: (2, 3) and (6, 11)</div>
+              <ol class="solve-steps">
+                <li><span>Label points: (x₁, y₁) = (2,3) and (x₂, y₂) = (6,11)</span></li>
+                <li><span>Plug into slope formula.<br><span class="math">m = (11 − 3) / (6 − 2)</span></span></li>
+                <li><span>Simplify.<br><span class="math">m = 8 / 4 = 2</span></span></li>
+              </ol>
+              <div class="solve-answer">m = 2</div>
+            </div>
+            <div class="solve-example">
+              <div class="solve-example-label">EXAMPLE — write equation from slope + point</div>
+              <div class="solve-problem">m = 3, passes through (1, 5)</div>
+              <ol class="solve-steps">
+                <li><span>Use point-slope: y − y₁ = m(x − x₁)<br><span class="math">y − 5 = 3(x − 1)</span></span></li>
+                <li><span>Distribute.<br><span class="math">y − 5 = 3x − 3</span></span></li>
+                <li><span>Solve for y.<br><span class="math">y = 3x + 2</span></span></li>
+              </ol>
+              <div class="solve-answer">y = 3x + 2</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Systems of Equations -->
+        <div class="solve-section">
+          <div class="solve-title">// METHOD 2 — SYSTEMS OF EQUATIONS (SUBSTITUTION)</div>
+          <div class="memory-trick">
+            Substitution: solve one equation for one variable, then PLUG that into the other equation. You'll get a number, then substitute back to find the other variable. Always check by plugging BOTH values into BOTH original equations.
+          </div>
+          <div class="solve-example">
+            <div class="solve-example-label">WORKED EXAMPLE</div>
+            <div class="solve-problem">y = 2x + 1 &nbsp;&nbsp; and &nbsp;&nbsp; 3x + y = 16</div>
+            <ol class="solve-steps">
+              <li><span>Since y = 2x + 1, substitute (2x + 1) for y in the second equation.<br><span class="math">3x + (2x + 1) = 16</span></span></li>
+              <li><span>Combine like terms.<br><span class="math">5x + 1 = 16</span></span></li>
+              <li><span>Subtract 1, divide by 5.<br><span class="math">5x = 15 → x = 3</span></span></li>
+              <li><span>Substitute x = 3 back into y = 2x + 1.<br><span class="math">y = 2(3) + 1 = 7</span></span></li>
+            </ol>
+            <div class="solve-answer">x = 3, y = 7</div>
+          </div>
+          <div class="solve-title" style="margin-top:20px">// METHOD 2B — ELIMINATION</div>
+          <div class="memory-trick">
+            Elimination: line up equations and add/subtract them to make one variable disappear. If coefficients don't match, multiply one (or both) equations by a number first to create matching coefficients.
+          </div>
+          <div class="solve-example">
+            <div class="solve-example-label">WORKED EXAMPLE</div>
+            <div class="solve-problem">2x + 3y = 12 &nbsp;&nbsp; and &nbsp;&nbsp; 2x − y = 4</div>
+            <ol class="solve-steps">
+              <li><span>Subtract the second equation from the first to eliminate 2x.<br><span class="math">(2x+3y) − (2x−y) = 12 − 4</span><br><span class="math">4y = 8</span></span></li>
+              <li><span>Solve for y.<br><span class="math">y = 2</span></span></li>
+              <li><span>Substitute y = 2 into either equation.<br><span class="math">2x − 2 = 4 → 2x = 6 → x = 3</span></span></li>
+            </ol>
+            <div class="solve-answer">x = 3, y = 2</div>
+          </div>
+        </div>
+
+        <!-- FOIL & Polynomials -->
+        <div class="solve-section">
+          <div class="solve-title">// METHOD 3 — FOIL &amp; POLYNOMIAL MULTIPLICATION</div>
+          <div class="formula-big">(a + b)(c + d) = ac + ad + bc + bd</div>
+          <div class="memory-trick">
+            FOIL stands for: <strong style="color:#fff">F</strong>irst · <strong style="color:#fff">O</strong>uter · <strong style="color:#fff">I</strong>nner · <strong style="color:#fff">L</strong>ast. Draw arrows connecting each pair — First×First, then reach across (outer), then the inside pair (inner), then Last×Last. Always combine like terms at the end.
+          </div>
+          <div class="solve-example">
+            <div class="solve-example-label">WORKED EXAMPLE</div>
+            <div class="solve-problem">(x + 3)(x + 5)</div>
+            <ol class="solve-steps">
+              <li><span>FIRST: x × x<br><span class="math">x²</span></span></li>
+              <li><span>OUTER: x × 5<br><span class="math">5x</span></span></li>
+              <li><span>INNER: 3 × x<br><span class="math">3x</span></span></li>
+              <li><span>LAST: 3 × 5<br><span class="math">15</span></span></li>
+              <li><span>Add and combine like terms.<br><span class="math">x² + 5x + 3x + 15 = x² + 8x + 15</span></span></li>
+            </ol>
+            <div class="solve-answer">x² + 8x + 15</div>
+          </div>
+        </div>
+
+        <!-- Factoring Trinomials -->
+        <div class="solve-section">
+          <div class="solve-title">// METHOD 4 — FACTORING TRINOMIALS</div>
+          <div class="formula-big">x² + bx + c &nbsp;→&nbsp; find two numbers: multiply to c, add to b</div>
+          <div class="memory-trick">
+            Reverse of FOIL. For x² + bx + c: find two numbers that <strong style="color:#fff">MULTIPLY</strong> to c and <strong style="color:#fff">ADD</strong> to b. List factor pairs of c and check which pair adds to b. If c is negative, the two numbers have opposite signs.
+          </div>
+          <div class="solve-cols">
+            <div class="solve-example">
+              <div class="solve-example-label">EXAMPLE — positive terms</div>
+              <div class="solve-problem">x² + 7x + 12</div>
+              <ol class="solve-steps">
+                <li><span>Need two numbers that × to 12 and + to 7.<br><span class="step-note">Pairs of 12: (1,12), (2,6), (3,4)</span></span></li>
+                <li><span>Which pair adds to 7?<br><span class="math">3 + 4 = 7 ✓</span></span></li>
+                <li><span>Write the factored form.<br><span class="math">(x + 3)(x + 4)</span></span></li>
+              </ol>
+              <div class="solve-answer">(x + 3)(x + 4)</div>
+            </div>
+            <div class="solve-example">
+              <div class="solve-example-label">EXAMPLE — negative constant</div>
+              <div class="solve-problem">x² + 2x − 15</div>
+              <ol class="solve-steps">
+                <li><span>Need × to −15, + to 2.<br><span class="step-note">Opposite signs since c is negative</span></span></li>
+                <li><span>Pairs: (5,−3): 5×−3=−15 ✓ and 5+(−3)=2 ✓</span></li>
+                <li><span>Factored form.<br><span class="math">(x + 5)(x − 3)</span></span></li>
+              </ol>
+              <div class="solve-answer">(x + 5)(x − 3)</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quadratic Formula -->
+        <div class="solve-section">
+          <div class="solve-title">// METHOD 5 — QUADRATIC FORMULA</div>
+          <div class="formula-big">x = (−b ± √(b² − 4ac)) / 2a &nbsp;&nbsp; for ax² + bx + c = 0</div>
+          <div class="memory-trick">
+            Use this when factoring won't work. Step one: get the equation to equal ZERO. Step two: identify a, b, c. Step three: plug into the formula. The ± means you get TWO answers — one with + and one with −. The discriminant b²−4ac tells you how many solutions: positive → 2, zero → 1, negative → none.
+          </div>
+          <div class="solve-example">
+            <div class="solve-example-label">WORKED EXAMPLE</div>
+            <div class="solve-problem">x² − 5x + 6 = 0</div>
+            <ol class="solve-steps">
+              <li><span>Identify a = 1, b = −5, c = 6</span></li>
+              <li><span>Plug into formula.<br><span class="math">x = (−(−5) ± √((−5)² − 4·1·6)) / (2·1)</span></span></li>
+              <li><span>Simplify inside the square root.<br><span class="math">x = (5 ± √(25 − 24)) / 2 = (5 ± √1) / 2</span></span></li>
+              <li><span>Two answers: (5+1)/2 = 3 &nbsp; and &nbsp; (5−1)/2 = 2</span></li>
+            </ol>
+            <div class="solve-answer">x = 3 or x = 2</div>
+          </div>
+        </div>
+
+        <!-- Exponent Rules -->
+        <div class="solve-section">
+          <div class="solve-title">// METHOD 6 — EXPONENT RULES APPLIED</div>
+          <div class="memory-trick">
+            Same base and multiplying? ADD exponents. Same base and dividing? SUBTRACT exponents. Power to a power? MULTIPLY exponents. Anything to the zero power = 1. Negative exponent = flip it to the denominator.
+          </div>
+          <div class="solve-example">
+            <div class="solve-example-label">QUICK REFERENCE WITH EXAMPLES</div>
+            <div class="solve-problem" style="display:block;background:none;border:none;padding:0;font-size:13px;">xᵃ · xᵇ = xᵃ⁺ᵇ &nbsp;&nbsp;→&nbsp;&nbsp; x³ · x⁵ = x⁸</div>
+            <div class="solve-problem" style="display:block;background:none;border:none;padding:0;font-size:13px;margin-top:8px;">xᵃ / xᵇ = xᵃ⁻ᵇ &nbsp;&nbsp;→&nbsp;&nbsp; x⁷ / x² = x⁵</div>
+            <div class="solve-problem" style="display:block;background:none;border:none;padding:0;font-size:13px;margin-top:8px;">(xᵃ)ᵇ = xᵃᵇ &nbsp;&nbsp;→&nbsp;&nbsp; (x³)⁴ = x¹²</div>
+            <div class="solve-problem" style="display:block;background:none;border:none;padding:0;font-size:13px;margin-top:8px;">x⁻ⁿ = 1/xⁿ &nbsp;&nbsp;→&nbsp;&nbsp; x⁻³ = 1/x³</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Algebra Flashcards -->
+    <div class="study-card fade-up d4">
+      <div class="card-header" onclick="toggleCard(this)">
+        <span class="card-title"><span class="card-num">★</span> FLASHCARDS — Algebra</span>
+        <span class="card-toggle">▶</span>
+      </div>
+      <div class="card-body">
+        <p style="font-size:10px;color:var(--dim);letter-spacing:0.1em;margin-bottom:14px;">TAP A CARD TO FLIP IT</p>
+        <div class="flashcard-grid">
+          <div class="flashcard" onclick="this.classList.toggle('flipped')"><div class="flashcard-inner"><div class="fc-front"><div class="fc-label">Q</div><div class="fc-text">Slope-intercept form?</div></div><div class="fc-back"><div class="fc-label">A</div><div class="fc-text">y = mx + b (m = slope, b = y-intercept)</div></div></div></div>
+          <div class="flashcard" onclick="this.classList.toggle('flipped')"><div class="flashcard-inner"><div class="fc-front"><div class="fc-label">Q</div><div class="fc-text">Quadratic formula?</div></div><div class="fc-back"><div class="fc-label">A</div><div class="fc-text">x = (-b ± √(b²-4ac)) / 2a — use when ax²+bx+c=0</div></div></div></div>
+          <div class="flashcard" onclick="this.classList.toggle('flipped')"><div class="flashcard-inner"><div class="fc-front"><div class="fc-label">Q</div><div class="fc-text">What does the discriminant tell you?</div></div><div class="fc-back"><div class="fc-label">A</div><div class="fc-text">&gt;0: two solutions. =0: one solution. &lt;0: no real solutions.</div></div></div></div>
+          <div class="flashcard" onclick="this.classList.toggle('flipped')"><div class="flashcard-inner"><div class="fc-front"><div class="fc-label">Q</div><div class="fc-text">FOIL stands for?</div></div><div class="fc-back"><div class="fc-label">A</div><div class="fc-text">First, Outer, Inner, Last — used to multiply two binomials</div></div></div></div>
+          <div class="flashcard" onclick="this.classList.toggle('flipped')"><div class="flashcard-inner"><div class="fc-front"><div class="fc-label">Q</div><div class="fc-text">What is the vertical line test?</div></div><div class="fc-back"><div class="fc-label">A</div><div class="fc-text">If any vertical line crosses the graph more than once, it is NOT a function.</div></div></div></div>
+          <div class="flashcard" onclick="this.classList.toggle('flipped')"><div class="flashcard-inner"><div class="fc-front"><div class="fc-label">Q</div><div class="fc-text">xᵃ × xᵇ = ?</div></div><div class="fc-back"><div class="fc-label">A</div><div class="fc-text">xᵃ⁺ᵇ — when multiplying same base, ADD exponents</div></div></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Algebra Practice Test -->
+    <div class="study-card fade-up d4">
+      <div class="card-header" onclick="toggleCard(this)">
+        <span class="card-title"><span class="card-num">✦</span> PRACTICE TEST — Algebra</span>
+        <span class="card-toggle">▶</span>
+      </div>
+      <div class="card-body" id="algebra-quiz">
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════
+       SCIENCE PANEL
+  ═══════════════════════════════════════ -->
+  <div class="panel" id="panel-science">
+
+    <div class="study-card fade-up d2">
+      <div class="card-header open" onclick="toggleCard(this)">
+        <span class="card-title"><span class="card-num">01</span> SCIENTIFIC METHOD & MEASUREMENT</span>
+        <span class="card-toggle">▶</span>
+      </div>
+      <div class="card-body open">
+        <div class="topic-grid">
+          <div class="topic-block">
+            <h4>Scientific Method Steps</h4>
+            <ul>
+              <li>1. Observation / Question</li>
+              <li>2. Background Research</li>
+              <li>3. Hypothesis (if-then statement)</li>
+              <li>4. Experiment Design</li>
+              <li>5. Data Collection & Analysis</li>
+              <li>6. Conclusion</li>
+              <li>7. Communicate results</li>
+            </ul>
+          </div>
+          <div class="topic-block">
+            <h4>Variables</h4>
+            <ul>
+              <li>Independent (manipulated): what you CHANGE</li>
+              <li>Dependent (responding): what you MEASURE</li>
+              <li>Control: what stays the SAME</li>
+              <li>Control group: no treatment (comparison)</li>
+              <li>Experimental group: receives treatment</li>
+            </ul>
+          </div>
+          <div class="topic-block">
+            <h4>Measurement & SI Units</h4>
+            <ul>
+              <li>Length: meter (m)</li>
+              <li>Mass: kilogram (kg)</li>
+              <li>Time: second (s)</li>
+              <li>Temperature: Kelvin (K) or Celsius (°C)</li>
+              <li>Volume: liter (L) or m³</li>
+            </ul>
+          </div>
+          <div class="topic-block">
+            <h4>Accuracy vs. Precision</h4>
+            <ul>
+              <li>Accuracy: how close to true value</li>
+              <li>Precision: how consistent results are</li>
+              <li>Can be precise but not accurate</li>
+              <li>Goal: both accurate AND precise</li>
+              <li>Error = experimental - accepted</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="study-card fade-up d3">
+      <div class="card-header" onclick="toggleCard(this)">
+        <span class="card-title"><span class="card-num">02</span> MATTER & ATOMIC STRUCTURE</span>
+        <span class="card-toggle">▶</span>
+      </div>
+      <div class="card-body">
+        <div class="topic-grid">
+          <div class="topic-block">
+            <h4>States of Matter</h4>
+            <ul>
+              <li>Solid: fixed shape, fixed volume, tightly packed</li>
+              <li>Liquid: no fixed shape, fixed volume, flows</li>
+              <li>Gas: no fixed shape, no fixed volume, spreads out</li>
+              <li>Plasma: high-energy ionized gas (4th state)</li>
+            </ul>
+          </div>
+          <div class="topic-block">
+            <h4>Phase Changes</h4>
+            <ul>
+              <li>Melting: solid → liquid (absorbs heat)</li>
+              <li>Freezing: liquid → solid (releases heat)</li>
+              <li>Evaporation/Boiling: liquid → gas (absorbs)</li>
+              <li>Condensation: gas → liquid (releases)</li>
+              <li>Sublimation: solid → gas directly</li>
+              <li>Deposition: gas → solid directly</li>
+            </ul>
+          </div>
+          <div class="topic-block">
+            <h4>Atomic Structure</h4>
+            <ul>
+              <li>Proton: positive charge, in nucleus</li>
+              <li>Neutron: no charge, in nucleus</li>
+              <li>Electron: negative charge, in electron cloud</li>
+              <li>Atomic number = # protons</li>
+              <li>Mass number = protons + neutrons</li>
+              <li>Neutral atom: # protons = # electrons</li>
+            </ul>
+          </div>
+          <div class="topic-block">
+            <h4>Periodic Table</h4>
+            <ul>
+              <li>Period (row): same # of electron shells</li>
+              <li>Group (column): same valence electrons</li>
+              <li>Metals: left side, conduct electricity</li>
+              <li>Nonmetals: right side, poor conductors</li>
+              <li>Metalloids: staircase, properties of both</li>
+            </ul>
+          </div>
+        </div>
+        <div class="key-fact"><strong>Isotopes:</strong> same # protons, different # neutrons. Same element, different mass number.</div>
+        <div class="key-fact"><strong>Ions:</strong> Cation = lost electrons (positive). Anion = gained electrons (negative).</div>
+      </div>
+    </div>
+
+    <div class="study-card fade-up d3">
+      <div class="card-header" onclick="toggleCard(this)">
+        <span class="card-title"><span class="card-num">03</span> PHYSICAL vs CHEMICAL CHANGES</span>
+        <span class="card-toggle">▶</span>
+      </div>
+      <div class="card-body">
+        <div class="topic-grid">
+          <div class="topic-block">
+            <h4>Physical Changes</h4>
+            <ul>
+              <li>NO new substance formed</li>
+              <li>Chemical identity stays same</li>
+              <li>Usually reversible</li>
+              <li>Examples: cutting, melting, dissolving, bending, boiling water</li>
+            </ul>
+          </div>
+          <div class="topic-block">
+            <h4>Chemical Changes</h4>
+            <ul>
+              <li>NEW substance(s) formed</li>
+              <li>Chemical bonds broken and formed</li>
+              <li>Usually NOT easily reversible</li>
+              <li>Examples: burning, rusting, cooking, digestion</li>
+            </ul>
+          </div>
+          <div class="topic-block">
+            <h4>Signs of Chemical Change</h4>
+            <ul>
+              <li>Gas production (bubbles)</li>
+              <li>Precipitate forms (solid in liquid)</li>
+              <li>Color change</li>
+              <li>Heat/light produced or absorbed</li>
+              <li>Odor change</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="study-card fade-up d3">
+      <div class="card-header" onclick="toggleCard(this)">
+        <span class="card-title"><span class="card-num">04</span> FORCES & MOTION</span>
+        <span class="card-toggle">▶</span>
+      </div>
+      <div class="card-body">
+        <div class="topic-grid">
+          <div class="topic-block">
+            <h4>Newton's Laws of Motion</h4>
+            <ul>
+              <li>1st (Inertia): objects resist changes in motion — stay at rest or keep moving unless net force acts</li>
+              <li>2nd: F = ma (force = mass × acceleration)</li>
+              <li>3rd: For every action, equal and opposite reaction</li>
+            </ul>
+          </div>
+          <div class="topic-block">
+            <h4>Motion Equations</h4>
+            <ul>
+              <li>Speed = distance / time (v = d/t)</li>
+              <li>Velocity = speed WITH direction</li>
+              <li>Acceleration = Δv / t = (vf - vi) / t</li>
+              <li>Momentum = mass × velocity (p = mv)</li>
+            </ul>
+          </div>
+          <div class="topic-block">
+            <h4>Types of Forces</h4>
+            <ul>
+              <li>Gravity: pulls toward Earth (9.8 m/s²)</li>
+              <li>Friction: opposes motion (kinetic/static)</li>
+              <li>Normal force: perpendicular to surface</li>
+              <li>Applied force: push or pull</li>
+              <li>Net force: sum of all forces</li>
+            </ul>
+          </div>
+          <div class="topic-block">
+            <h4>Balanced vs Unbalanced Forces</h4>
+            <ul>
+              <li>Balanced: net force = 0, no change in motion</li>
+              <li>Unbalanced: net force ≠ 0, causes acceleration</li>
+              <li>Free body diagrams show all forces</li>
+              <li>Forces are vectors (have direction)</li>
+            </ul>
+          </div>
+        </div>
+        <div class="formula-box">v = d/t &nbsp;|&nbsp; a = Δv/t &nbsp;|&nbsp; F = ma &nbsp;|&nbsp; W = mg</div>
+      </div>
+    </div>
+
+    <div class="study-card fade-up d3">
+      <div class="card-header" onclick="toggleCard(this)">
+        <span class="card-title"><span class="card-num">05</span> ENERGY</span>
+        <span class="card-toggle">▶</span>
+      </div>
+      <div class="card-body">
+        <div class="topic-grid">
+          <div class="topic-block">
+            <h4>Types of Energy</h4>
+            <ul>
+              <li>Kinetic: energy of motion (KE = ½mv²)</li>
+              <li>Potential: stored energy</li>
+              <li>Gravitational PE = mgh</li>
+              <li>Elastic PE: springs/rubber bands</li>
+              <li>Chemical: in bonds (food, batteries)</li>
+              <li>Thermal: heat (random particle motion)</li>
+              <li>Electromagnetic: light, radio waves</li>
+            </ul>
+          </div>
+          <div class="topic-block">
+            <h4>Energy Transformations</h4>
+            <ul>
+              <li>Energy cannot be created or destroyed</li>
+              <li>Law of Conservation of Energy</li>
+              <li>Roller coaster: PE↔KE constantly</li>
+              <li>Light bulb: electrical → light + thermal</li>
+              <li>Plant: light → chemical (photosynthesis)</li>
+            </ul>
+          </div>
+          <div class="topic-block">
+            <h4>Heat Transfer</h4>
+            <ul>
+              <li>Conduction: direct contact (spoon in soup)</li>
+              <li>Convection: fluid movement (boiling water)</li>
+              <li>Radiation: electromagnetic waves (sun)</li>
+              <li>Heat flows from hot → cold</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="study-card fade-up d3">
+      <div class="card-header" onclick="toggleCard(this)">
+        <span class="card-title"><span class="card-num">06</span> WAVES, SOUND & LIGHT</span>
+        <span class="card-toggle">▶</span>
+      </div>
+      <div class="card-body">
+        <div class="topic-grid">
+          <div class="topic-block">
+            <h4>Wave Properties</h4>
+            <ul>
+              <li>Wavelength (λ): distance between crests</li>
+              <li>Frequency (f): # of waves per second (Hz)</li>
+              <li>Amplitude: height of wave (energy!)</li>
+              <li>Speed = wavelength × frequency (v = λf)</li>
+              <li>Transverse: vibrate ⊥ to direction</li>
+              <li>Longitudinal: vibrate ∥ to direction (sound)</li>
+            </ul>
+          </div>
+          <div class="topic-block">
+            <h4>Electromagnetic Spectrum</h4>
+            <ul>
+              <li>Radio → Microwave → Infrared → Visible → UV → X-ray → Gamma</li>
+              <li>All travel at speed of light (c = 3×10⁸ m/s)</li>
+              <li>Higher frequency = higher energy</li>
+              <li>Higher frequency = shorter wavelength</li>
+            </ul>
+          </div>
+          <div class="topic-block">
+            <h4>Light Behavior</h4>
+            <ul>
+              <li>Reflection: bounces off surface</li>
+              <li>Refraction: bends when changing medium</li>
+              <li>Absorption: energy taken in</li>
+              <li>Transmission: passes through</li>
+              <li>Visible light: ROY G BIV (red→violet)</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="study-card fade-up d3">
+      <div class="card-header" onclick="toggleCard(this)">
+        <span class="card-title"><span class="card-num">07</span> EARTH SCIENCE — PLATE TECTONICS</span>
+        <span class="card-toggle">▶</span>
+      </div>
+      <div class="card-body">
+        <div class="topic-grid">
+          <div class="topic-block">
+            <h4>Earth's Layers</h4>
+            <ul>
+              <li>Crust: thin outer layer (oceanic & continental)</li>
+              <li>Mantle: largest layer, rock that flows slowly</li>
+              <li>Outer core: LIQUID iron & nickel</li>
+              <li>Inner core: SOLID iron & nickel (hottest)</li>
+            </ul>
+          </div>
+          <div class="topic-block">
+            <h4>Plate Boundaries</h4>
+            <ul>
+              <li>Convergent: plates collide → mountains, volcanoes, earthquakes</li>
+              <li>Divergent: plates separate → rift valleys, mid-ocean ridges</li>
+              <li>Transform: plates slide past → earthquakes (San Andreas)</li>
+            </ul>
+          </div>
+          <div class="topic-block">
+            <h4>Volcanoes & Earthquakes</h4>
+            <ul>
+              <li>Earthquake: caused by plate movement along faults</li>
+              <li>Epicenter: point on surface above focus</li>
+              <li>P-waves: primary, faster, push-pull</li>
+              <li>S-waves: secondary, slower, side-to-side</li>
+              <li>Richter scale: measures magnitude</li>
+            </ul>
+          </div>
+          <div class="topic-block">
+            <h4>Rock Cycle</h4>
+            <ul>
+              <li>Igneous: formed from cooled magma/lava</li>
+              <li>Sedimentary: formed from compressed sediments</li>
+              <li>Metamorphic: changed by heat and pressure</li>
+              <li>All can transform into each other</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="study-card fade-up d3">
+      <div class="card-header" onclick="toggleCard(this)">
+        <span class="card-title"><span class="card-num">08</span> WEATHER & CLIMATE</span>
+        <span class="card-toggle">▶</span>
+      </div>
+      <div class="card-body">
+        <div class="topic-grid">
+          <div class="topic-block">
+            <h4>Weather vs Climate</h4>
+            <ul>
+              <li>Weather: short-term atmospheric conditions (today)</li>
+              <li>Climate: average weather over 30+ years</li>
+              <li>Microclimate: local climate variation</li>
+            </ul>
+          </div>
+          <div class="topic-block">
+            <h4>Water Cycle</h4>
+            <ul>
+              <li>Evaporation: water to vapor (sun)</li>
+              <li>Transpiration: plants release water vapor</li>
+              <li>Condensation: vapor → clouds</li>
+              <li>Precipitation: rain, snow, sleet, hail</li>
+              <li>Runoff / Infiltration / Collection</li>
+            </ul>
+          </div>
+          <div class="topic-block">
+            <h4>Atmosphere Layers</h4>
+            <ul>
+              <li>Troposphere: weather happens here (0-12km)</li>
+              <li>Stratosphere: ozone layer (12-50km)</li>
+              <li>Mesosphere: meteors burn up</li>
+              <li>Thermosphere: auroras, ISS orbits</li>
+              <li>Exosphere: edge of space</li>
+            </ul>
+          </div>
+          <div class="topic-block">
+            <h4>Climate Change</h4>
+            <ul>
+              <li>Greenhouse effect: CO₂/CH₄ trap heat</li>
+              <li>Greenhouse gases: CO₂, methane, water vapor</li>
+              <li>Effects: rising temps, sea level rise, extreme weather</li>
+              <li>Natural vs human-caused (anthropogenic)</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Science Flashcards -->
+    <div class="study-card fade-up d4">
+      <div class="card-header" onclick="toggleCard(this)">
+        <span class="card-title"><span class="card-num">★</span> FLASHCARDS — Science</span>
+        <span class="card-toggle">▶</span>
+      </div>
+      <div class="card-body">
+        <p style="font-size:10px;color:var(--dim);letter-spacing:0.1em;margin-bottom:14px;">TAP A CARD TO FLIP IT</p>
+        <div class="flashcard-grid">
+          <div class="flashcard" onclick="this.classList.toggle('flipped')"><div class="flashcard-inner"><div class="fc-front"><div class="fc-label">Q</div><div class="fc-text">What charge does a proton have?</div></div><div class="fc-back"><div class="fc-label">A</div><div class="fc-text">Positive (+). Protons are in the nucleus along with neutrons (neutral).</div></div></div></div>
+          <div class="flashcard" onclick="this.classList.toggle('flipped')"><div class="flashcard-inner"><div class="fc-front"><div class="fc-label">Q</div><div class="fc-text">Newton's 2nd Law?</div></div><div class="fc-back"><div class="fc-label">A</div><div class="fc-text">F = ma. Force equals mass times acceleration.</div></div></div></div>
+          <div class="flashcard" onclick="this.classList.toggle('flipped')"><div class="flashcard-inner"><div class="fc-front"><div class="fc-label">Q</div><div class="fc-text">Difference between weather and climate?</div></div><div class="fc-back"><div class="fc-label">A</div><div class="fc-text">Weather = short-term conditions right now. Climate = average conditions over 30+ years.</div></div></div></div>
+          <div class="flashcard" onclick="this.classList.toggle('flipped')"><div class="flashcard-inner"><div class="fc-front"><div class="fc-label">Q</div><div class="fc-text">Which layer of Earth is liquid?</div></div><div class="fc-back"><div class="fc-label">A</div><div class="fc-text">The Outer Core — it is liquid iron and nickel. The inner core is solid.</div></div></div></div>
+          <div class="flashcard" onclick="this.classList.toggle('flipped')"><div class="flashcard-inner"><div class="fc-front"><div class="fc-label">Q</div><div class="fc-text">What is kinetic energy?</div></div><div class="fc-back"><div class="fc-label">A</div><div class="fc-text">Energy of motion. KE = ½mv². More speed = WAY more energy (squared).</div></div></div></div>
+          <div class="flashcard" onclick="this.classList.toggle('flipped')"><div class="flashcard-inner"><div class="fc-front"><div class="fc-label">Q</div><div class="fc-text">3 types of heat transfer?</div></div><div class="fc-back"><div class="fc-label">A</div><div class="fc-text">Conduction (contact), Convection (fluid movement), Radiation (waves — no matter needed)</div></div></div></div>
+          <div class="flashcard" onclick="this.classList.toggle('flipped')"><div class="flashcard-inner"><div class="fc-front"><div class="fc-label">Q</div><div class="fc-text">What causes earthquakes?</div></div><div class="fc-back"><div class="fc-label">A</div><div class="fc-text">Movement of tectonic plates along faults. Most at convergent or transform boundaries.</div></div></div></div>
+          <div class="flashcard" onclick="this.classList.toggle('flipped')"><div class="flashcard-inner"><div class="fc-front"><div class="fc-label">Q</div><div class="fc-text">Independent vs dependent variable?</div></div><div class="fc-back"><div class="fc-label">A</div><div class="fc-text">Independent = what you CHANGE. Dependent = what you MEASURE as a result.</div></div></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Science Practice Test -->
+    <div class="study-card fade-up d4">
+      <div class="card-header" onclick="toggleCard(this)">
+        <span class="card-title"><span class="card-num">✦</span> PRACTICE TEST — Science</span>
+        <span class="card-toggle">▶</span>
+      </div>
+      <div class="card-body" id="science-quiz">
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════
+       BIOLOGY PANEL
+  ═══════════════════════════════════════ -->
+  <div class="panel" id="panel-biology">
+
+    <div class="study-card fade-up d2">
+      <div class="card-header open" onclick="toggleCard(this)">
+        <span class="card-title"><span class="card-num">01</span> CELL STRUCTURE & FUNCTION</span>
+        <span class="card-toggle">▶</span>
+      </div>
+      <div class="card-body open">
+        <div class="topic-grid">
+          <div class="topic-block">
+            <h4>Cell Theory</h4>
+            <ul>
+              <li>All living things are made of cells</li>
+              <li>Cell = basic unit of life</li>
+              <li>All cells come from pre-existing cells</li>
+              <li>Two types: Prokaryotic & Eukaryotic</li>
+            </ul>
+          </div>
+          <div class="topic-block">
+            <h4>Animal Cell Organelles</h4>
+            <ul>
+              <li>Nucleus: "brain" — stores DNA</li>
+              <li>Mitochondria: powerhouse — makes ATP energy</li>
+              <li>Ribosome: makes proteins</li>
+              <li>ER (rough): has ribosomes, makes proteins</li>
+              <li>ER (smooth): makes lipids, detox</li>
+              <li>Golgi apparatus: packages and ships proteins</li>
+              <li>Lysosome: digests waste</li>
+              <li>Cell membrane: controls what enters/exits</li>
+            </ul>
+          </div>
+          <div class="topic-block">
+            <h4>Plant-Only Organelles</h4>
+            <ul>
+              <li>Cell wall: rigid support (cellulose)</li>
+              <li>Chloroplast: photosynthesis</li>
+              <li>Central vacuole: large, stores water, gives structure</li>
+              <li>Plasmodesmata: connect plant cells</li>
+            </ul>
+          </div>
+          <div class="topic-block">
+            <h4>Prokaryotic vs Eukaryotic</h4>
+            <ul>
+              <li>Prokaryotic: no membrane-bound nucleus (bacteria, archaea)</li>
+              <li>Eukaryotic: has true nucleus (plants, animals, fungi, protists)</li>
+              <li>Prokaryotic = simpler, smaller</li>
+              <li>Both have DNA, ribosomes, cell membrane</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="study-card fade-up d3">
+      <div class="card-header" onclick="toggleCard(this)">
+        <span class="card-title"><span class="card-num">02</span> PHOTOSYNTHESIS & CELLULAR RESPIRATION</span>
+        <span class="card-toggle">▶</span>
+      </div>
+      <div class="card-body">
+        <div class="topic-grid">
+          <div class="topic-block">
+            <h4>Photosynthesis</h4>
+            <ul>
+              <li>Where: chloroplasts (thylakoids + stroma)</li>
+              <li>Inputs: CO₂ + H₂O + light energy</li>
+              <li>Outputs: glucose (C₆H₁₂O₆) + O₂</li>
+              <li>Light reactions: in thylakoids, capture light</li>
+              <li>Calvin cycle: in stroma, makes glucose</li>
+            </ul>
+          </div>
+          <div class="topic-block">
+            <h4>Cellular Respiration</h4>
+            <ul>
+              <li>Where: mitochondria (and cytoplasm)</li>
+              <li>Inputs: glucose + O₂</li>
+              <li>Outputs: CO₂ + H₂O + ATP (energy!)</li>
+              <li>Glycolysis: cytoplasm, breaks glucose</li>
+              <li>Krebs cycle + ETC: mitochondria, makes ATP</li>
+            </ul>
+          </div>
+        </div>
+        <div class="key-fact"><strong>Photosynthesis equation:</strong> 6CO₂ + 6H₂O + light → C₆H₁₂O₆ + 6O₂</div>
+        <div class="key-fact"><strong>Cellular respiration equation:</strong> C₆H₁₂O₆ + 6O₂ → 6CO₂ + 6H₂O + ATP energy</div>
+        <div class="key-fact"><strong>They are OPPOSITE processes!</strong> What one uses, the other makes. This cycles matter through ecosystems.</div>
+      </div>
+    </div>
+
+    <div class="study-card fade-up d3">
+      <div class="card-header" onclick="toggleCard(this)">
+        <span class="card-title"><span class="card-num">03</span> CELL DIVISION — MITOSIS & MEIOSIS</span>
+        <span class="card-toggle">▶</span>
+      </div>
+      <div class="card-body">
+        <div class="topic-grid">
+          <div class="topic-block">
+            <h4>Mitosis (Somatic Cells)</h4>
+            <ul>
+              <li>Purpose: growth, repair, asexual reproduction</li>
+              <li>Result: 2 identical daughter cells</li>
+              <li>Same chromosome number as parent (diploid)</li>
+              <li>PMAT: Prophase → Metaphase → Anaphase → Telophase</li>
+              <li>Followed by cytokinesis (cell splits)</li>
+            </ul>
+          </div>
+          <div class="topic-block">
+            <h4>Phases of Mitosis</h4>
+            <ul>
+              <li>Interphase: DNA duplicates (not mitosis itself)</li>
+              <li>Prophase: chromosomes visible, spindle forms</li>
+              <li>Metaphase: chromosomes line up in middle</li>
+              <li>Anaphase: chromatids pulled to poles</li>
+              <li>Telophase: nuclear envelope reforms</li>
+            </ul>
+          </div>
+          <div class="topic-block">
+            <h4>Meiosis (Sex Cells)</h4>
+            <ul>
+              <li>Purpose: make gametes (sperm/egg)</li>
+              <li>Result: 4 genetically unique cells</li>
+              <li>Half chromosomes (haploid)</li>
+              <li>Two rounds: Meiosis I + Meiosis II</li>
+              <li>Crossing over creates genetic variation</li>
+            </ul>
+          </div>
+        </div>
+        <div class="key-fact"><strong>Mitosis = 2 identical copies (BODY cells). Meiosis = 4 unique half-copies (SEX cells).</strong> Remember: Meiosis has MORE cells = MORE unique.</div>
+      </div>
+    </div>
+
+    <div class="study-card fade-up d3">
+      <div class="card-header" onclick="toggleCard(this)">
+        <span class="card-title"><span class="card-num">04</span> DNA, GENES & PROTEIN SYNTHESIS</span>
+        <span class="card-toggle">▶</span>
+      </div>
+      <div class="card-body">
+        <div class="topic-grid">
+          <div class="topic-block">
+            <h4>DNA Structure</h4>
+            <ul>
+              <li>Double helix shape</li>
+              <li>Made of nucleotides</li>
+              <li>Each nucleotide: sugar + phosphate + base</li>
+              <li>Bases: A, T, G, C</li>
+              <li>Base pairs: A-T and G-C always</li>
+              <li>Discovered by Watson & Crick (1953)</li>
+            </ul>
+          </div>
+          <div class="topic-block">
+            <h4>Protein Synthesis</h4>
+            <ul>
+              <li>Transcription: DNA → mRNA (in nucleus)</li>
+              <li>mRNA carries genetic code to ribosome</li>
+              <li>Translation: mRNA → protein (at ribosome)</li>
+              <li>tRNA brings amino acids</li>
+              <li>Codon: 3 mRNA bases = 1 amino acid</li>
+            </ul>
+          </div>
+          <div class="topic-block">
+            <h4>Mutations</h4>
+            <ul>
+              <li>Change in DNA sequence</li>
+              <li>Point mutation: one base changed</li>
+              <li>Insertion/deletion: bases added or removed</li>
+              <li>Can be harmful, neutral, or beneficial</li>
+              <li>Caused by: radiation, chemicals, errors</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="study-card fade-up d3">
+      <div class="card-header" onclick="toggleCard(this)">
+        <span class="card-title"><span class="card-num">05</span> GENETICS & HEREDITY</span>
+        <span class="card-toggle">▶</span>
+      </div>
+      <div class="card-body">
+        <div class="topic-grid">
+          <div class="topic-block">
+            <h4>Mendel's Laws</h4>
+            <ul>
+              <li>Law of Segregation: alleles separate during gamete formation</li>
+              <li>Law of Independent Assortment: genes on different chromosomes assort independently</li>
+              <li>Dominant allele: expressed even when one copy present (capital letter)</li>
+              <li>Recessive: only expressed when two copies (lowercase)</li>
+            </ul>
+          </div>
+          <div class="topic-block">
+            <h4>Genotype & Phenotype</h4>
+            <ul>
+              <li>Genotype: actual allele combination (TT, Tt, tt)</li>
+              <li>Phenotype: physical appearance/trait</li>
+              <li>Homozygous: same alleles (TT or tt)</li>
+              <li>Heterozygous: different alleles (Tt)</li>
+            </ul>
+          </div>
+          <div class="topic-block">
+            <h4>Punnett Squares</h4>
+            <ul>
+              <li>Grid to predict offspring ratios</li>
+              <li>Monohybrid: one trait (2×2)</li>
+              <li>Dihybrid: two traits (4×4)</li>
+              <li>Tt × Tt → 1 TT : 2 Tt : 1 tt</li>
+              <li>3:1 phenotype ratio for monohybrid</li>
+            </ul>
+          </div>
+          <div class="topic-block">
+            <h4>Non-Mendelian Inheritance</h4>
+            <ul>
+              <li>Codominance: both alleles expressed (AB blood type)</li>
+              <li>Incomplete dominance: blending (red+white=pink)</li>
+              <li>Sex-linked: traits on X or Y chromosome</li>
+              <li>Polygenic: multiple genes control trait (height, skin color)</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="study-card fade-up d3">
+      <div class="card-header" onclick="toggleCard(this)">
+        <span class="card-title"><span class="card-num">06</span> EVOLUTION & NATURAL SELECTION</span>
+        <span class="card-toggle">▶</span>
+      </div>
+      <div class="card-body">
+        <div class="topic-grid">
+          <div class="topic-block">
+            <h4>Darwin's Theory</h4>
+            <ul>
+              <li>Natural selection: survival of the fittest</li>
+              <li>Variation exists in populations</li>
+              <li>Heritable traits can be passed on</li>
+              <li>Organisms with advantageous traits reproduce more</li>
+              <li>Over time, populations change</li>
+            </ul>
+          </div>
+          <div class="topic-block">
+            <h4>Evidence for Evolution</h4>
+            <ul>
+              <li>Fossil record: shows change over time</li>
+              <li>Comparative anatomy: homologous structures</li>
+              <li>DNA evidence: similar genes = common ancestor</li>
+              <li>Biogeography: distribution of species</li>
+              <li>Vestigial structures: leftover useless parts</li>
+            </ul>
+          </div>
+          <div class="topic-block">
+            <h4>Key Vocabulary</h4>
+            <ul>
+              <li>Adaptation: trait that improves survival</li>
+              <li>Speciation: formation of new species</li>
+              <li>Common ancestor: shared evolutionary origin</li>
+              <li>Genetic drift: random allele frequency changes</li>
+              <li>Gene flow: alleles moving between populations</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="study-card fade-up d3">
+      <div class="card-header" onclick="toggleCard(this)">
+        <span class="card-title"><span class="card-num">07</span> ECOLOGY & ECOSYSTEMS</span>
+        <span class="card-toggle">▶</span>
+      </div>
+      <div class="card-body">
+        <div class="topic-grid">
+          <div class="topic-block">
+            <h4>Ecological Levels</h4>
+            <ul>
+              <li>Organism → Population → Community → Ecosystem → Biome → Biosphere</li>
+              <li>Population: same species, same area</li>
+              <li>Community: all species in area</li>
+              <li>Ecosystem: biotic + abiotic factors</li>
+            </ul>
+          </div>
+          <div class="topic-block">
+            <h4>Energy Flow</h4>
+            <ul>
+              <li>Producers (autotrophs): make own food (plants)</li>
+              <li>Primary consumers: eat producers (herbivores)</li>
+              <li>Secondary consumers: eat primary consumers</li>
+              <li>Tertiary consumers: top predators</li>
+              <li>Decomposers: break down dead matter</li>
+              <li>10% rule: only 10% energy passes to next level</li>
+            </ul>
+          </div>
+          <div class="topic-block">
+            <h4>Symbiosis</h4>
+            <ul>
+              <li>Mutualism: both benefit (+/+)</li>
+              <li>Commensalism: one benefits, other neutral (+/0)</li>
+              <li>Parasitism: one benefits, one harmed (+/-)</li>
+              <li>Predation: predator kills prey</li>
+              <li>Competition: both species harmed (-/-)</li>
+            </ul>
+          </div>
+          <div class="topic-block">
+            <h4>Biogeochemical Cycles</h4>
+            <ul>
+              <li>Carbon cycle: CO₂ ↔ organic matter</li>
+              <li>Nitrogen cycle: N₂ → nitrates → organisms</li>
+              <li>Water cycle: evaporation → precipitation</li>
+              <li>Phosphorus cycle: rocks → soil → organisms</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="study-card fade-up d3">
+      <div class="card-header" onclick="toggleCard(this)">
+        <span class="card-title"><span class="card-num">08</span> HUMAN BODY SYSTEMS</span>
+        <span class="card-toggle">▶</span>
+      </div>
+      <div class="card-body">
+        <table class="vocab-table">
+          <tr><th>System</th><th>Main Organs</th><th>Function</th></tr>
+          <tr><td>Circulatory</td><td>Heart, blood vessels, blood</td><td>Transport oxygen, nutrients, waste</td></tr>
+          <tr><td>Respiratory</td><td>Lungs, trachea, diaphragm</td><td>Gas exchange (O₂ in, CO₂ out)</td></tr>
+          <tr><td>Digestive</td><td>Stomach, small & large intestine</td><td>Break down food, absorb nutrients</td></tr>
+          <tr><td>Nervous</td><td>Brain, spinal cord, nerves</td><td>Control, coordination, response</td></tr>
+          <tr><td>Skeletal</td><td>Bones, cartilage, joints</td><td>Support, protection, movement</td></tr>
+          <tr><td>Muscular</td><td>Skeletal, cardiac, smooth muscle</td><td>Movement and body functions</td></tr>
+          <tr><td>Immune</td><td>White blood cells, lymph nodes</td><td>Defend against pathogens</td></tr>
+          <tr><td>Endocrine</td><td>Glands, hormones</td><td>Chemical regulation, homeostasis</td></tr>
+          <tr><td>Excretory</td><td>Kidneys, skin, lungs</td><td>Remove waste from the body</td></tr>
+          <tr><td>Reproductive</td><td>Ovaries/testes</td><td>Produce offspring</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <!-- Biology Flashcards -->
+    <div class="study-card fade-up d4">
+      <div class="card-header" onclick="toggleCard(this)">
+        <span class="card-title"><span class="card-num">★</span> FLASHCARDS — Biology</span>
+        <span class="card-toggle">▶</span>
+      </div>
+      <div class="card-body">
+        <p style="font-size:10px;color:var(--dim);letter-spacing:0.1em;margin-bottom:14px;">TAP A CARD TO FLIP IT</p>
+        <div class="flashcard-grid">
+          <div class="flashcard" onclick="this.classList.toggle('flipped')"><div class="flashcard-inner"><div class="fc-front"><div class="fc-label">Q</div><div class="fc-text">What organelle does photosynthesis?</div></div><div class="fc-back"><div class="fc-label">A</div><div class="fc-text">Chloroplast — found ONLY in plant cells. Uses light to convert CO₂+H₂O → glucose+O₂</div></div></div></div>
+          <div class="flashcard" onclick="this.classList.toggle('flipped')"><div class="flashcard-inner"><div class="fc-front"><div class="fc-label">Q</div><div class="fc-text">What is the powerhouse of the cell?</div></div><div class="fc-back"><div class="fc-label">A</div><div class="fc-text">Mitochondria — performs cellular respiration to make ATP energy for the cell.</div></div></div></div>
+          <div class="flashcard" onclick="this.classList.toggle('flipped')"><div class="flashcard-inner"><div class="fc-front"><div class="fc-label">Q</div><div class="fc-text">Difference between mitosis and meiosis?</div></div><div class="fc-back"><div class="fc-label">A</div><div class="fc-text">Mitosis: 2 identical body cells. Meiosis: 4 unique sex cells with half chromosomes.</div></div></div></div>
+          <div class="flashcard" onclick="this.classList.toggle('flipped')"><div class="flashcard-inner"><div class="fc-front"><div class="fc-label">Q</div><div class="fc-text">DNA base pairing rules?</div></div><div class="fc-back"><div class="fc-label">A</div><div class="fc-text">A pairs with T. G pairs with C. In RNA: A pairs with U (uracil replaces thymine).</div></div></div></div>
+          <div class="flashcard" onclick="this.classList.toggle('flipped')"><div class="flashcard-inner"><div class="fc-front"><div class="fc-label">Q</div><div class="fc-text">What is natural selection?</div></div><div class="fc-back"><div class="fc-label">A</div><div class="fc-text">Organisms with favorable traits survive and reproduce more, passing those traits to offspring over time.</div></div></div></div>
+          <div class="flashcard" onclick="this.classList.toggle('flipped')"><div class="flashcard-inner"><div class="fc-front"><div class="fc-label">Q</div><div class="fc-text">What is the 10% rule in ecosystems?</div></div><div class="fc-back"><div class="fc-label">A</div><div class="fc-text">Only 10% of energy transfers to the next trophic level. 90% is lost as heat.</div></div></div></div>
+          <div class="flashcard" onclick="this.classList.toggle('flipped')"><div class="flashcard-inner"><div class="fc-front"><div class="fc-label">Q</div><div class="fc-text">Dominant vs recessive allele?</div></div><div class="fc-back"><div class="fc-label">A</div><div class="fc-text">Dominant (capital) is expressed with just one copy. Recessive (lowercase) requires two copies to be expressed.</div></div></div></div>
+          <div class="flashcard" onclick="this.classList.toggle('flipped')"><div class="flashcard-inner"><div class="fc-front"><div class="fc-label">Q</div><div class="fc-text">Photosynthesis equation?</div></div><div class="fc-back"><div class="fc-label">A</div><div class="fc-text">6CO₂ + 6H₂O + light energy → C₆H₁₂O₆ + 6O₂</div></div></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Biology Practice Test -->
+    <div class="study-card fade-up d4">
+      <div class="card-header" onclick="toggleCard(this)">
+        <span class="card-title"><span class="card-num">✦</span> PRACTICE TEST — Biology</span>
+        <span class="card-toggle">▶</span>
+      </div>
+      <div class="card-body" id="biology-quiz">
+      </div>
+    </div>
+  </div>
+
+</div><!-- /app -->
+
+<script>
+// ──────────────────────────────────────────
+// BOOT SEQUENCE
+// ──────────────────────────────────────────
+(function(){
+  const lines = document.querySelectorAll('[id^="b"]');
+  let delay = 0;
+  lines.forEach((el, i) => {
+    delay += i === 0 ? 100 : 220;
+    setTimeout(() => el.classList.add('show'), delay);
+  });
+  setTimeout(() => {
+    const boot = document.getElementById('boot');
+    boot.classList.add('out');
+    setTimeout(() => boot.remove(), 700);
+  }, delay + 900);
+})();
+
+// ──────────────────────────────────────────
+// DOT CANVAS — TWEENING HOLOGRAPHIC DOTS
+// ──────────────────────────────────────────
+(function(){
+  const canvas = document.getElementById('dot-canvas');
+  const ctx = canvas.getContext('2d');
+  let W, H, dots = [];
+  const COLS = 55, ROWS = 35;
+
+  function resize(){
+    W = canvas.width = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+    initDots();
+  }
+
+  function initDots(){
+    dots = [];
+    const xStep = W / COLS, yStep = H / ROWS;
+    for(let r = 0; r < ROWS; r++){
+      for(let c = 0; c < COLS; c++){
+        const bx = c * xStep + xStep/2;
+        const by = r * yStep + yStep/2;
+        dots.push({
+          bx, by,
+          x: bx, y: by,
+          size: Math.random() * 1.2 + 0.4,
+          targetSize: Math.random() * 1.2 + 0.4,
+          alpha: Math.random() * 0.4 + 0.1,
+          targetAlpha: Math.random() * 0.4 + 0.1,
+          phase: Math.random() * Math.PI * 2,
+          speed: Math.random() * 0.008 + 0.003,
+          waveAmp: Math.random() * 6 + 2,
+          tweeningTo: null,
+          tweenProgress: 0,
+        });
+      }
+    }
+  }
+
+  let mouse = {x: W/2, y: H/2};
+  window.addEventListener('mousemove', e => { mouse.x = e.clientX; mouse.y = e.clientY; });
+
+  let t = 0;
+  function animate(){
+    ctx.clearRect(0, 0, W, H);
+    t += 0.012;
+
+    dots.forEach((d, i) => {
+      d.phase += d.speed;
+
+      // Wave displacement
+      const wave = Math.sin(d.phase + d.bx * 0.01) * d.waveAmp;
+      const wave2 = Math.cos(d.phase * 0.7 + d.by * 0.01) * d.waveAmp * 0.5;
+      const tx = d.bx + wave;
+      const ty = d.by + wave2;
+
+      // Tween position
+      d.x += (tx - d.x) * 0.05;
+      d.y += (ty - d.y) * 0.05;
+
+      // Mouse repulsion
+      const dx = d.x - mouse.x, dy = d.y - mouse.y;
+      const dist = Math.sqrt(dx*dx + dy*dy);
+      if(dist < 90){
+        const force = (90 - dist) / 90;
+        d.x += dx/dist * force * 14;
+        d.y += dy/dist * force * 14;
+      }
+
+      // Tween size
+      if(Math.random() < 0.003) d.targetSize = Math.random() * 2 + 0.3;
+      d.size += (d.targetSize - d.size) * 0.03;
+
+      // Tween alpha
+      if(Math.random() < 0.004) d.targetAlpha = Math.random() * 0.5 + 0.05;
+      d.alpha += (d.targetAlpha - d.alpha) * 0.025;
+
+      // Holographic shimmer
+      const shimmer = 0.5 + 0.5 * Math.sin(d.phase * 2.3 + i * 0.1);
+      const finalAlpha = d.alpha * (0.6 + shimmer * 0.4);
+
+      // Color: white or dim
+      const bright = shimmer > 0.7;
+      ctx.beginPath();
+      ctx.arc(d.x, d.y, d.size, 0, Math.PI*2);
+      ctx.fillStyle = bright
+        ? `rgba(255,255,255,${finalAlpha})`
+        : `rgba(180,180,180,${finalAlpha * 0.5})`;
+      ctx.fill();
+    });
+
+    requestAnimationFrame(animate);
+  }
+
+  window.addEventListener('resize', resize);
+  resize();
+  animate();
+})();
+
+// ──────────────────────────────────────────
+// CARD TOGGLE
+// ──────────────────────────────────────────
+function toggleCard(header){
+  const body = header.nextElementSibling;
+  const isOpen = body.classList.contains('open');
+  body.classList.toggle('open', !isOpen);
+  header.classList.toggle('open', !isOpen);
+}
+
+// ──────────────────────────────────────────
+// CLASS TABS
+// ──────────────────────────────────────────
+document.querySelectorAll('.class-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.class-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    tab.classList.add('active');
+    const panel = document.getElementById('panel-' + tab.dataset.panel);
+    panel.classList.add('active');
+    // Reinit quizzes if switching
+    setupQuizzes();
+  });
+});
+
+// ──────────────────────────────────────────
+// QUIZ ENGINE
+// ──────────────────────────────────────────
+const quizData = {
+  algebra: [
+    { q:"What is the slope-intercept form of a linear equation?", choices:["y = ax + c","y = mx + b","y = bx + m","Ax + By = C"], ans: 1 },
+    { q:"Solve: 2x + 6 = 14. What is x?", choices:["3","4","6","10"], ans: 1 },
+    { q:"What is x² - 9 factored?", choices:["(x-3)(x-3)","(x+3)(x+3)","(x+3)(x-3)","(x-9)(x+1)"], ans: 2 },
+    { q:"What does the discriminant b²-4ac tell you?", choices:["The slope","Number and type of solutions","The y-intercept","The vertex"], ans: 1 },
+    { q:"Which property states a(b+c) = ab + ac?", choices:["Commutative","Associative","Distributive","Identity"], ans: 2 },
+    { q:"What is x⁰ equal to (x ≠ 0)?", choices:["0","x","1","undefined"], ans: 2 },
+    { q:"Two lines are parallel when they have:", choices:["Same y-intercept","Same slope","Opposite slopes","Perpendicular slopes"], ans: 1 },
+    { q:"FOIL stands for:", choices:["Factor Outer Inner Last","First Outer Inner Last","First Order Inverse Line","Factor Order Integrate Last"], ans: 1 },
+    { q:"Solve: 3x - 7 = 11. What is x?", choices:["4","5","6","7"], ans: 2 },
+    { q:"What is the slope of the line y = 4x - 3?", choices:["-3","3","4","-4"], ans: 2 },
+    { q:"What is (x + 3)(x - 3)?", choices:["x² + 9","x² - 9","x² - 6","x² + 6x - 9"], ans: 1 },
+    { q:"The y-intercept of y = 5x + 7 is:", choices:["5","7","-5","-7"], ans: 1 },
+    { q:"xᵃ × xᵇ equals:", choices:["xᵃᵇ","xᵃ⁺ᵇ","xᵃ⁻ᵇ","x²ᵃ"], ans: 1 },
+    { q:"Factor: x² + 5x + 6", choices:["(x+1)(x+6)","(x+2)(x+3)","(x+3)(x+3)","(x-2)(x-3)"], ans: 1 },
+    { q:"The quadratic formula is:", choices:["x = (-b ± √(b²-4ac)) / 2a","x = (b ± √(b²-4ac)) / 2a","x = (-b ± √(4ac-b²)) / 2a","x = (-b ± √(b²+4ac)) / 2a"], ans: 0 },
+    { q:"Perpendicular lines have slopes that are:", choices:["Equal","Opposite","Negative reciprocals","Zero"], ans: 2 },
+    { q:"Solve the system: y = x + 2 and y = 2x - 1. What is x?", choices:["1","2","3","4"], ans: 2 },
+    { q:"What is x⁻² equal to?", choices:["1/x²","x²","-x²","-1/x²"], ans: 0 },
+    { q:"In 4.7 × 10³, the value is:", choices:["47","470","4700","47000"], ans: 2 },
+    { q:"Which is NOT a real number solution when discriminant < 0?", choices:["One real solution","Two real solutions","No real solutions","Infinite solutions"], ans: 2 },
+    { q:"Factor: 6x² + 9x", choices:["3(2x² + 3x)","3x(2x + 3)","6x(x + 3)","9x(x + 1)"], ans: 1 },
+    { q:"What is the vertex form of a quadratic?", choices:["y = ax² + bx + c","y = a(x-h)² + k","y = mx + b","y = ax + b"], ans: 1 },
+    { q:"Solve: -4x > 20. What is x?", choices:["x > -5","x < -5","x > 5","x < 5"], ans: 1 },
+    { q:"The axis of symmetry formula is:", choices:["x = b/2a","x = -b/2a","x = -b/a","x = 2a/b"], ans: 1 },
+    { q:"(x + 4)(x + 2) expanded is:", choices:["x² + 6x + 8","x² + 8x + 6","x² + 4x + 8","x² + 6x + 6"], ans: 0 },
+    { q:"Slope of a horizontal line is:", choices:["1","Undefined","0","-1"], ans: 2 },
+    { q:"To solve by elimination you:", choices:["Graph both equations","Substitute one into the other","Add or subtract equations to cancel a variable","Multiply all terms"], ans: 2 },
+    { q:"What is the domain of a function?", choices:["All output (y) values","All input (x) values","The slope","The y-intercept"], ans: 1 },
+    { q:"x³ / x⁵ equals:", choices:["x²","x⁻²","x⁸","x¹⁵"], ans: 1 },
+    { q:"The standard form of a linear equation is:", choices:["y = mx + b","Ax + By = C","y - y₁ = m(x - x₁)","ax² + bx + c = 0"], ans: 1 },
+    { q:"A parabola opens UPWARD when:", choices:["a < 0","b > 0","a > 0","c < 0"], ans: 2 },
+    { q:"Which value of x satisfies x² = 49?", choices:["x = 7 only","x = -7 only","x = ±7","x = ±49"], ans: 2 },
+    { q:"The number of solutions when two lines are the same (coincident) is:", choices:["0","1","2","Infinite"], ans: 3 },
+    { q:"Simplify: (2x³)² =", choices:["4x⁵","4x⁶","2x⁶","2x⁵"], ans: 1 },
+    { q:"What transformation shifts y = x² three units up?", choices:["y = x² + 3","y = (x+3)²","y = x² - 3","y = 3x²"], ans: 0 },
+    { q:"The GCF of 12x³ and 8x² is:", choices:["4x","4x²","8x²","12x³"], ans: 1 },
+    { q:"Solve: |x - 2| = 5. The solutions are:", choices:["x = 7 and x = -3","x = 7 and x = 3","x = -7 and x = 3","x = 3 only"], ans: 0 },
+    { q:"Function notation f(3) means:", choices:["f × 3","f divided by 3","Find the output when x = 3","Find x when y = 3"], ans: 2 },
+    { q:"Which equation has no solution?", choices:["x + 1 = x + 1","2x = 4","x + 1 = x + 2","2x - 3 = 7"], ans: 2 },
+    { q:"The range of a function refers to:", choices:["All x values","All y (output) values","The slope","The domain"], ans: 1 },
+  ],
+  science: [
+    { q:"Which subatomic particle has a negative charge?", choices:["Proton","Neutron","Electron","Nucleus"], ans: 2 },
+    { q:"What is Newton's Second Law?", choices:["Objects in motion stay in motion","F = ma","Every action has an equal reaction","Weight = mass × gravity"], ans: 1 },
+    { q:"Which is a chemical change?", choices:["Melting ice","Cutting paper","Rusting iron","Dissolving salt"], ans: 2 },
+    { q:"Which layer of Earth is liquid metal?", choices:["Crust","Mantle","Inner core","Outer core"], ans: 3 },
+    { q:"The independent variable is:", choices:["What is measured","What is changed","What stays the same","The conclusion"], ans: 1 },
+    { q:"The speed formula is:", choices:["v = m/t","v = d/t","v = F/m","v = at"], ans: 1 },
+    { q:"What type of heat transfer requires NO medium?", choices:["Conduction","Convection","Radiation","Thermodynamics"], ans: 2 },
+    { q:"Kinetic energy is energy of:", choices:["Storage","Position","Motion","Chemical bonds"], ans: 2 },
+    { q:"What causes tectonic plates to move?", choices:["Wind patterns","Convection currents in the mantle","Earth's rotation","Ocean tides"], ans: 1 },
+    { q:"Frequency is measured in:", choices:["Meters","Seconds","Hertz","Watts"], ans: 2 },
+    { q:"The atomic number equals the number of:", choices:["Neutrons","Protons","Electrons in the outer shell","Mass units"], ans: 1 },
+    { q:"Mass number = protons + ___?", choices:["Electrons","Neutrons","Ions","Isotopes"], ans: 1 },
+    { q:"Which is a PHYSICAL change?", choices:["Burning wood","Baking a cake","Melting ice","Rust forming"], ans: 2 },
+    { q:"Metals are found on which side of the periodic table?", choices:["Right","Left","Middle only","Bottom"], ans: 1 },
+    { q:"Newton's First Law is about:", choices:["Force = mass × acceleration","Inertia","Action-reaction pairs","Gravity"], ans: 1 },
+    { q:"P-waves in an earthquake are:", choices:["Slower, side-to-side","Faster, push-pull compression","Surface waves","Water waves"], ans: 1 },
+    { q:"The water cycle step where water becomes vapor is:", choices:["Condensation","Precipitation","Evaporation","Runoff"], ans: 2 },
+    { q:"Igneous rock forms from:", choices:["Compressed sediments","Heat and pressure on existing rock","Cooled magma or lava","Erosion"], ans: 2 },
+    { q:"What layer of the atmosphere has the ozone layer?", choices:["Troposphere","Stratosphere","Mesosphere","Thermosphere"], ans: 1 },
+    { q:"Gravitational potential energy formula is:", choices:["½mv²","mgh","F×d","mv"], ans: 1 },
+    { q:"Two plates moving APART form a:", choices:["Convergent boundary","Divergent boundary","Transform boundary","Subduction zone"], ans: 1 },
+    { q:"Sound is a ___ wave:", choices:["Transverse","Longitudinal","Electromagnetic","Gamma"], ans: 1 },
+    { q:"The electromagnetic wave with the HIGHEST energy is:", choices:["Radio","Visible light","X-ray","Gamma ray"], ans: 3 },
+    { q:"Conservation of Energy means energy is:", choices:["Created from nothing","Destroyed by friction","Converted, never created or destroyed","Always kinetic"], ans: 2 },
+    { q:"A control group in an experiment:", choices:["Receives the treatment","Is the independent variable","Has no treatment for comparison","Is the dependent variable"], ans: 2 },
+    { q:"Isotopes of the same element have different numbers of:", choices:["Protons","Electrons","Neutrons","Energy levels"], ans: 2 },
+    { q:"The Richter scale measures earthquake:", choices:["Depth","Duration","Magnitude","Speed"], ans: 2 },
+    { q:"Climate is defined as weather patterns over:", choices:["A few days","One season","30+ years","100+ years"], ans: 2 },
+    { q:"What is the formula for kinetic energy?", choices:["mgh","½mv²","F×d","mv"], ans: 1 },
+    { q:"Conduction is heat transfer by:", choices:["Fluid movement","Direct contact","Electromagnetic waves","Radiation"], ans: 1 },
+    { q:"Atoms with GAINED electrons become:", choices:["Cations (positive ions)","Anions (negative ions)","Isotopes","Neutral atoms"], ans: 1 },
+    { q:"The inner core of Earth is:", choices:["Liquid iron","Solid iron and nickel","Molten rock","Gas"], ans: 1 },
+    { q:"Momentum formula is:", choices:["F = ma","p = mv","v = d/t","W = mg"], ans: 1 },
+    { q:"Which wave behavior explains why a straw looks bent in water?", choices:["Reflection","Absorption","Refraction","Diffraction"], ans: 2 },
+    { q:"Where does weather PRIMARILY occur?", choices:["Stratosphere","Mesosphere","Thermosphere","Troposphere"], ans: 3 },
+    { q:"An anion has a ___ charge because it ___ electrons:", choices:["Positive, lost","Negative, lost","Positive, gained","Negative, gained"], ans: 3 },
+    { q:"What does amplitude of a wave represent?", choices:["Speed","Wavelength","Energy / height of wave","Frequency"], ans: 2 },
+    { q:"Which layer of Earth is the thinnest?", choices:["Mantle","Crust","Outer core","Inner core"], ans: 1 },
+    { q:"Greenhouse gases include:", choices:["Nitrogen and oxygen only","CO₂, methane, water vapor","Argon and neon","Ozone only"], ans: 1 },
+    { q:"Newton's Third Law states:", choices:["Objects resist change in motion","F = ma","For every action there is an equal and opposite reaction","Gravity = mass × 9.8"], ans: 2 },
+  ],
+  biology: [
+    { q:"What organelle performs photosynthesis?", choices:["Nucleus","Ribosome","Chloroplast","Mitochondria"], ans: 2 },
+    { q:"What is the 'powerhouse of the cell'?", choices:["Nucleus","Chloroplast","Mitochondria","Vacuole"], ans: 2 },
+    { q:"Mitosis produces how many daughter cells?", choices:["1","2","4","8"], ans: 1 },
+    { q:"In DNA, adenine (A) always pairs with:", choices:["Guanine","Cytosine","Thymine","Uracil"], ans: 2 },
+    { q:"Natural selection was proposed by:", choices:["Mendel","Einstein","Darwin","Hooke"], ans: 2 },
+    { q:"A dominant allele is represented by:", choices:["Lowercase letter","Uppercase letter","A number","An asterisk"], ans: 1 },
+    { q:"The 10% rule in ecology means:", choices:["10% of organisms survive","10% of energy passes to each trophic level","10% of DNA codes for proteins","10% of cells divide"], ans: 1 },
+    { q:"Cellular respiration occurs in the:", choices:["Chloroplast","Nucleus","Mitochondria","Ribosome"], ans: 2 },
+    { q:"Which organelle is found in plant cells only?", choices:["Nucleus","Ribosome","Cell wall","Mitochondria"], ans: 2 },
+    { q:"Meiosis produces cells with how many chromosomes?", choices:["Same as parent","Twice as many","Half as many","Quarter as many"], ans: 2 },
+    { q:"Photosynthesis equation: 6CO₂ + 6H₂O + light →", choices:["C₆H₁₂O₆ + 6O₂","6O₂ + H₂O","C₆H₁₂O₆ only","6CO₂ + O₂"], ans: 0 },
+    { q:"The basic unit of life is:", choices:["Tissue","Atom","Cell","Organ"], ans: 2 },
+    { q:"Which type of reproduction involves only one parent?", choices:["Sexual","Meiotic","Asexual","Hybrid"], ans: 2 },
+    { q:"In Mendel's genetics, Tt × Tt gives what ratio of dominant phenotype?", choices:["1:3","3:1","1:1","4:0"], ans: 1 },
+    { q:"An organism's genotype refers to:", choices:["Its physical appearance","Its genetic makeup (alleles)","Its behavior","Its biome"], ans: 1 },
+    { q:"What is the function of the ribosome?", choices:["Photosynthesis","Protein synthesis","Energy production","DNA storage"], ans: 1 },
+    { q:"Which level of ecological organization is BROADEST?", choices:["Population","Community","Ecosystem","Biosphere"], ans: 3 },
+    { q:"DNA stands for:", choices:["Deoxyribonucleic acid","Dinuclear acid","Dioxyribose acid","Deoxynucleic acid"], ans: 0 },
+    { q:"Producers (plants) are at which trophic level?", choices:["Second","Third","First","Fourth"], ans: 2 },
+    { q:"Phenotype is:", choices:["The allele combination","The physical appearance/traits expressed","The chromosome count","The mutation rate"], ans: 1 },
+    { q:"Which best describes a homozygous genotype?", choices:["Tt","TT or tt","Bb","All of these"], ans: 1 },
+    { q:"Cellular respiration equation produces:", choices:["Glucose and oxygen","CO₂, water, and ATP","Glucose and ATP only","Oxygen and ATP"], ans: 1 },
+    { q:"Mutations in DNA can be caused by:", choices:["Radiation and chemicals only","Only UV light","Radiation, chemicals, and errors in replication","Only replication errors"], ans: 2 },
+    { q:"Which organelle stores water and maintains cell pressure in plant cells?", choices:["Chloroplast","Large central vacuole","Cell wall","Ribosome"], ans: 1 },
+    { q:"Natural selection acts on which of the following?", choices:["Genotype directly","Phenotype (expressed traits)","DNA sequences only","Recessive alleles only"], ans: 1 },
+    { q:"The cell membrane is made of:", choices:["Protein only","DNA and protein","Phospholipid bilayer","Carbohydrates only"], ans: 2 },
+    { q:"An organism that makes its own food is called:", choices:["Heterotroph","Decomposer","Autotroph","Consumer"], ans: 2 },
+    { q:"Guanine (G) in DNA pairs with:", choices:["Adenine","Thymine","Cytosine","Uracil"], ans: 2 },
+    { q:"During mitosis, which phase do chromosomes line up in the middle?", choices:["Prophase","Metaphase","Anaphase","Telophase"], ans: 1 },
+    { q:"Evolution is defined as:", choices:["Change in an individual over time","Change in allele frequencies in a population over generations","Adaptation of one organism","Genetic mutation"], ans: 1 },
+    { q:"A food chain shows:", choices:["Decomposer relationships","Flow of energy from producers to consumers","Population size","Genetic diversity"], ans: 1 },
+    { q:"What is an adaptation?", choices:["A learned behavior only","A heritable trait that increases survival and reproduction","A mutation that is always harmful","An environmental change"], ans: 1 },
+    { q:"Which kingdom do bacteria belong to?", choices:["Protista","Fungi","Animalia","Monera/Bacteria"], ans: 3 },
+    { q:"The nucleus contains:", choices:["Chlorophyll","Ribosomes","DNA and RNA","ATP"], ans: 2 },
+    { q:"Which process produces genetically diverse gametes?", choices:["Mitosis","Binary fission","Meiosis","Budding"], ans: 2 },
+    { q:"A heterozygous genotype for flower color (Rr) is crossed with rr. What fraction of offspring will be Rr?", choices:["0","1/4","1/2","3/4"], ans: 2 },
+    { q:"Biotic factors in an ecosystem include:", choices:["Temperature and rainfall","Soil type and sunlight","Living organisms","Rock formations"], ans: 2 },
+    { q:"Which molecule carries genetic instructions from the nucleus to ribosomes?", choices:["tRNA","mRNA","DNA","ATP"], ans: 1 },
+    { q:"An organism occupying the third trophic level is a:", choices:["Producer","Primary consumer","Secondary consumer","Decomposer"], ans: 2 },
+    { q:"Cell differentiation means:", choices:["Cells dividing rapidly","Cells becoming specialized for specific functions","Cells mutating","Cells dying"], ans: 1 },
+  ]
+};
+
+function buildQuiz(containerId, questions) {
+  const container = document.getElementById(containerId);
+  if(!container || container.dataset.built) return;
+  container.dataset.built = '1';
+
+  const letters = ['A','B','C','D'];
+  let answered = 0, correct = 0;
+
+  questions.forEach((qData, qi) => {
+    const div = document.createElement('div');
+    div.className = 'quiz-q';
+    div.innerHTML = `
+      <div class="q-num">QUESTION ${qi+1} / ${questions.length}</div>
+      <div class="q-text">${qData.q}</div>
+      <ul class="q-choices">
+        ${qData.choices.map((c,ci) => `
+          <li data-idx="${ci}" data-q="${qi}">
+            <span class="choice-letter">${letters[ci]}</span>${c}
+          </li>
+        `).join('')}
+      </ul>
+    `;
+    container.appendChild(div);
+
+    div.querySelectorAll('li').forEach(li => {
+      li.addEventListener('click', () => {
+        if(li.classList.contains('revealed')) return;
+        const chosen = parseInt(li.dataset.idx);
+        div.querySelectorAll('li').forEach(l => {
+          l.classList.add('revealed');
+          if(parseInt(l.dataset.idx) === qData.ans) l.classList.add('correct');
+          else if(l === li) l.classList.add('wrong');
+        });
+        answered++;
+        if(chosen === qData.ans) correct++;
+        if(answered === questions.length) showScore();
+      });
+    });
+  });
+
+  const scoreDiv = document.createElement('div');
+  scoreDiv.className = 'quiz-score';
+  scoreDiv.innerHTML = `
+    <span class="score-num" id="sn-${containerId}">0</span>
+    <span class="score-label">/ ${questions.length} CORRECT</span>
+    <br><button class="btn" onclick="resetQuiz('${containerId}')">RETRY TEST</button>
+  `;
+  container.appendChild(scoreDiv);
+
+  function showScore(){
+    scoreDiv.style.display = 'block';
+    document.getElementById('sn-'+containerId).textContent = correct;
+  }
+}
+
+function resetQuiz(containerId){
+  const container = document.getElementById(containerId);
+  container.innerHTML = '';
+  delete container.dataset.built;
+  const key = containerId.replace('-quiz','');
+  buildQuiz(containerId, quizData[key]);
+}
+
+function setupQuizzes(){
+  buildQuiz('algebra-quiz', quizData.algebra);
+  buildQuiz('science-quiz', quizData.science);
+  buildQuiz('biology-quiz', quizData.biology);
+}
+
+// Initial build
+setTimeout(setupQuizzes, 500);
+</script>
+</body>
+</html>
